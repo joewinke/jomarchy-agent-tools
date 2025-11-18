@@ -21,8 +21,6 @@ Jomarchy Agent Tools is a **zero-configuration AI development environment** that
 - **Execute** with 28 composable bash tools (no MCP bloat, instant integration)
 - **Scale** infinitely - add agents without coordination overhead
 
-**Philosophy:** Following [What if you don't need MCP?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) by Mario Zechner - control a swarm of agents across repositories with lightweight tools instead of heavyweight servers.
-
 ---
 
 ## Why Use This?
