@@ -2,7 +2,7 @@
 
 **Manage multiple agents across several projects in a complete AI-assisted development environment in one command.**
 
-Agent Mail (multi-agent coordination) + Beads (task planning) + 24 bash tools = Clear, fast integration that empowers agents with incredible capability—without the cost and bloat of MCP.
+Agent Mail (multi-agent coordination) + Beads (task planning) + 28 bash tools = Clear, fast integration that empowers agents with incredible capability—without the cost and bloat of MCP.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/install.sh | bash
@@ -17,7 +17,7 @@ Jomarchy Agent Tools is a **zero-configuration AI development environment** that
 - **Coordinate** across multiple agents without conflicts (Agent Mail)
 - **Transcend** project folders and context window bounds with cross-project communication
 - **Plan** work with dependency-aware task management (Beads)
-- **Execute** with 24 composable bash tools (no MCP bloat, instant integration)
+- **Execute** with 28 composable bash tools (no MCP bloat, instant integration)
 - **Scale** across all your projects with unified dashboard views
 
 **Philosophy:** Following [What if you don't need MCP?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) by Mario Zechner - control a swarm of agents across repositories with lightweight tools instead of heavyweight servers.
@@ -63,7 +63,7 @@ curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/
 This installs:
 - ✅ Agent Mail Server (http://localhost:3141)
 - ✅ Beads CLI (`bd` command)
-- ✅ 24 generic bash tools (am-*, browser-*, db-*, etc.)
+- ✅ 28 generic bash tools (am-*, browser-*, db-*, etc.)
 - ✅ Optional tech stack tools (e.g., SvelteKit + Supabase with 11 additional tools)
 - ✅ Global ~/.claude/CLAUDE.md configuration
 - ✅ Per-repo setup (bd init, CLAUDE.md templates)
@@ -129,7 +129,7 @@ bd update task-id --status in_progress --assignee AgentName
 bd close task-id --reason "Completed"
 ```
 
-### 3. 24 Generic Bash Agent Tools
+### 3. 28 Generic Bash Agent Tools
 
 **Location:** `~/.local/bin/` (globally available)
 
@@ -148,9 +148,10 @@ bd close task-id --reason "Completed"
 - `am-agents` - List all agents
 - `am-whoami` - Show current agent identity
 
-#### Browser Automation Tools (7)
+#### Browser Automation Tools (11)
 Based on [badlogic/browser-tools](https://github.com/badlogic/browser-tools)
 
+**Core Tools (7):**
 - `browser-start.js` - Start Chrome with remote debugging
 - `browser-nav.js` - Navigate to URL
 - `browser-eval.js` - Execute JavaScript
@@ -158,6 +159,12 @@ Based on [badlogic/browser-tools](https://github.com/badlogic/browser-tools)
 - `browser-pick.js` - Interactive element picker
 - `browser-cookies.js` - Manage cookies
 - `browser-hn-scraper.js` - Example scraper
+
+**Advanced Tools (4):**
+- `browser-wait.js` - Smart waiting with CDP polling (eliminates race conditions)
+- `browser-snapshot.js` - Structured page tree (1000x token savings: 5KB vs 5MB)
+- `browser-console.js` - Structured console access (debug JS errors with stack traces)
+- `browser-network.js` - Network request monitoring (API testing with timing metrics)
 
 #### Database & Utility Tools (6)
 
@@ -515,8 +522,8 @@ At $0.015 per 1k tokens (GPT-4):
              │ Read project CLAUDE.md
              │
 ┌────────────▼────────────────────────────────┐
-│  Bash Tools (24+ scripts in ~/.local/bin)   │
-│  • 24 generic tools (am-*, browser-*, db-*) │
+│  Bash Tools (28+ scripts in ~/.local/bin)   │
+│  • 28 generic tools (am-*, browser-*, db-*) │
 │  • Optional stack tools (11+ per stack)     │
 └────────┬───────────────────┬────────────────┘
          │                   │
