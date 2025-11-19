@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tools](https://img.shields.io/badge/Tools-28-blue)](#4-28-generic-bash-tools)
 [![Commands](https://img.shields.io/badge/Commands-10-purple)](#3-agent-swarm-coordination-commands)
-[![Agent Mail](https://img.shields.io/badge/Agent%20Mail-Enabled-green)](http://127.0.0.1:8765)
+[![Agent Mail](https://img.shields.io/badge/Agent%20Mail-Bash%2BSQLite-green)](#1-agent-mail)
 [![Beads](https://img.shields.io/badge/Beads-CLI-orange)](https://github.com/steveyegge/beads)
 
 **Manage multiple agents across several projects in a complete AI-assisted development environment in one command.**
@@ -35,13 +35,13 @@ curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/
 
 ## What Is This?
 
-Jomarchy Agent Tools is a **zero-configuration AI development environment** that gives your coding assistants (Claude Code, Cursor, Aider, OpenCode, etc.) the ability to:
+Jomarchy Agent Tools is a **self-contained AI development environment** that gives your coding assistants (Claude Code, Cursor, Aider, OpenCode, etc.) the ability to:
 
 - **Command** agent swarms with high-level coordination primitives (/start, /complete, /handoff)
 - **Coordinate** across multiple agents without conflicts (Agent Mail messaging + file locks)
 - **Transcend** project folders and context window bounds with persistent state
 - **Plan** work with dependency-aware task management (Beads)
-- **Execute** with 28 composable bash tools (no MCP bloat, instant integration)
+- **Execute** with 28 composable bash tools (no HTTP servers, no running daemons)
 - **Scale** infinitely - add agents without coordination overhead
 
 ### 🏗️ Architecture
@@ -104,7 +104,7 @@ Modern AI coding assistants face three major challenges:
 
 **Real-world impact:**
 - **Control agent swarms** that span multiple projects and coding assistants
-- **No MCP bloat**: Simple bash tools, instant integration (32k+ token savings)
+- **No running services**: Just bash scripts + SQLite (32k+ token savings vs MCP servers)
 - **Universal compatibility**: Works with Claude Code, Cursor, Aider, OpenCode, etc.
 - **Bash composability**: Pipe, filter, and chain tools with jq, xargs, grep
 
@@ -196,7 +196,7 @@ curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/
 ```
 
 This installs:
-- ✅ Agent Mail Server (http://localhost:3141)
+- ✅ Agent Mail (11 bash/SQLite tools: am-register, am-send, am-inbox, etc.)
 - ✅ Beads CLI (`bd` command)
 - ✅ 28 generic bash tools (am-*, browser-*, db-*, etc.)
 - ✅ 10 coordination commands (/register, /start, /complete, /handoff, etc.)
@@ -204,23 +204,39 @@ This installs:
 - ✅ Global ~/.claude/CLAUDE.md configuration
 - ✅ Per-repo setup (bd init, CLAUDE.md templates)
 
-**Time:** ~2 minutes | **Requires:** Linux/macOS, curl
+**Time:** ~2 minutes | **Requires:** Linux/macOS, curl, sqlite3, jq
 
 ---
 
 ## What Gets Installed
 
-### 1. Agent Mail Server
+**System Requirements:**
+- ✅ `sqlite3` (database - usually pre-installed)
+- ✅ `jq` (JSON processing - `apt install jq` or `brew install jq`)
+- ✅ `git` (version control)
+- ✅ `bash` 4.0+ (shell scripting)
 
-**Multi-agent coordination system**
+**Auto-Installed Components:**
+- ✅ Agent Mail (11 bash tools + SQLite schema)
+- ✅ Beads CLI (task management)
+- ✅ 28 generic bash tools
+- ✅ 10 coordination commands
 
-```bash
-# Check status
-systemctl --user status agent-mail
+**What You DON'T Need:**
+- ❌ No HTTP servers to run
+- ❌ No background daemons
+- ❌ No systemd services
+- ❌ No Node.js/Python runtimes
+- ❌ No ports to manage
+- ❌ No API keys or authentication
 
-# API endpoint
-http://localhost:3141
-```
+---
+
+### 1. Agent Mail
+
+**Multi-agent coordination system (bash + SQLite)**
+
+**Database:** `~/.agent-mail.db`
 
 **Features:**
 - Agent identity management (register, whoami)

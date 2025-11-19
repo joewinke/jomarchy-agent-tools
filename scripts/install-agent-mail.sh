@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Install Agent Mail Server
-# Multi-agent coordination system via HTTP API
+# Install Agent Mail (bash + SQLite tools)
+# Multi-agent coordination system
 
 set -e
 
@@ -11,63 +11,49 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${BLUE}Installing Agent Mail Server...${NC}"
+echo -e "${BLUE}Installing Agent Mail (bash + SQLite)...${NC}"
 echo ""
 
-# Check if already installed
-INSTALL_DIR="$HOME/code/jomarchy-agent-tools/mcp_agent_mail"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BIN_DIR="$HOME/bin"
+AGENT_MAIL_DB="${AGENT_MAIL_DB:-$HOME/.agent-mail.db}"
 
-if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/scripts/run_server_with_token.sh" ]; then
-    echo -e "${YELLOW}  ⊘ Agent Mail Server already installed${NC}"
-    echo "  Location: $INSTALL_DIR"
-    echo ""
-else
-    echo "  → Installing Agent Mail Server (this may take 30-60 seconds)..."
-    echo "  Installing to: $INSTALL_DIR"
-    echo ""
+# Create ~/bin if needed
+if [ ! -d "$BIN_DIR" ]; then
+    mkdir -p "$BIN_DIR"
+    echo -e "${GREEN}  ✓ Created $BIN_DIR${NC}"
+fi
 
-    # Create temp log file for installer output
-    TEMP_LOG=$(mktemp)
-
-    # Run installer in background, capturing output
-    # The installer will start the server at the end - we'll kill it after
-    (curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/mcp_agent_mail/main/scripts/install.sh | bash -s -- --yes > "$TEMP_LOG" 2>&1) &
-    INSTALLER_PID=$!
-
-    # Wait for installation to complete (check for run script existence)
-    echo "  Waiting for installation to complete..."
-    for i in {1..60}; do
-        if [ -f "$INSTALL_DIR/scripts/run_server_with_token.sh" ]; then
-            echo "  Installation files detected, cleaning up..."
-            sleep 2  # Let server start
-            break
+# Symlink Agent Mail tools
+echo "  → Symlinking Agent Mail tools to ~/bin..."
+TOOLS_INSTALLED=0
+for tool in "$SCRIPT_DIR/mail"/am-*; do
+    if [ -f "$tool" ] && [ -x "$tool" ] && [[ "$tool" != *.sh ]]; then
+        tool_name=$(basename "$tool")
+        target="$BIN_DIR/$tool_name"
+        if [ -L "$target" ]; then
+            rm "$target"
         fi
-        sleep 1
-    done
-
-    # Kill the installer and any server it started
-    pkill -P $INSTALLER_PID 2>/dev/null || true
-    kill $INSTALLER_PID 2>/dev/null || true
-    lsof -ti:8765 | xargs -r kill -9 2>/dev/null || true
-
-    # Clean up log file
-    rm -f "$TEMP_LOG"
-
-    if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/scripts/run_server_with_token.sh" ]; then
-        echo -e "${GREEN}  ✓ Agent Mail Server installed successfully${NC}"
-    else
-        echo -e "${YELLOW}  ⚠ Installation incomplete - check manually${NC}"
-        exit 1
+        ln -sf "$tool" "$target"
+        TOOLS_INSTALLED=$((TOOLS_INSTALLED + 1))
     fi
+done
+echo -e "${GREEN}  ✓ Installed $TOOLS_INSTALLED Agent Mail tools${NC}"
+
+# Initialize database
+if [ ! -f "$AGENT_MAIL_DB" ]; then
+    if [ -f "$SCRIPT_DIR/mail/schema.sql" ]; then
+        sqlite3 "$AGENT_MAIL_DB" < "$SCRIPT_DIR/mail/schema.sql"
+        echo -e "${GREEN}  ✓ Created database: $AGENT_MAIL_DB${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ⊘ Database already exists: $AGENT_MAIL_DB${NC}"
 fi
 
 echo -e "${GREEN}  ✓ Agent Mail ready${NC}"
-echo "  Location: $INSTALL_DIR"
-echo "  Server will auto-start when you run am-* commands (am-register, am-inbox, etc.)"
-
 echo ""
 echo "  Usage:"
-echo "    am-register --program claude-code --model sonnet-4.5"
+echo "    am-register --name AgentName --program claude-code --model sonnet-4.5"
 echo "    am-inbox AgentName"
-echo "    am-send \"Subject\" \"Body\" --from AgentName --to project-team"
+echo "    am-send \"Subject\" \"Body\" --from Agent1 --to Agent2 --thread bd-123"
 echo ""
