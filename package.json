@@ -1,0 +1,21 @@
+{
+  "name": "jomarchy-agent-tools",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Agent Mail and supporting tools for multi-agent coordination",
+  "main": "lib/beads.js",
+  "scripts": {
+    "test": "node test/test-beads.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
+  },
+  "keywords": [
+    "agent-mail",
+    "beads",
+    "multi-agent",
+    "coordination"
+  ],
+  "author": "",
+  "license": "MIT"
+}
