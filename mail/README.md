@@ -21,6 +21,32 @@ Tools are automatically linked to `~/bin` during setup. Ensure `~/bin` is in you
 export PATH="$HOME/bin:$PATH"
 ```
 
+### macOS Compatibility
+
+All Agent Mail tools are fully compatible with macOS. The tools automatically detect your platform and use the appropriate commands:
+
+**Requirements:**
+- bash 3.2+ (macOS default: 3.2.57) ✅
+- sqlite3 with JSON support (macOS 10.14+) ✅
+- Standard Unix tools: grep, sed, awk, jq
+
+**Install jq (if needed):**
+```bash
+brew install jq
+```
+
+**Platform differences handled:**
+- Date commands: GNU `date -d` (Linux) vs BSD `date -v` (macOS) - automatically detected
+- All other commands work identically across platforms
+
+**Testing:**
+Run the compatibility test to verify your system:
+```bash
+bash test/test-macos-compat.sh
+```
+
+This will check bash version, SQLite support, date handling, and all tool syntax.
+
 ## Database
 
 Default location: `~/.agent-mail.db`
