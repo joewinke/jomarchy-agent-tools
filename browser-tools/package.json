@@ -1,0 +1,12 @@
+{
+	"name": "browser-tools",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Minimal CDP tools for collaborative site exploration",
+	"author": "Mario Zechner",
+	"license": "MIT",
+	"dependencies": {
+		"cheerio": "^1.1.2",
+		"puppeteer-core": "^23.11.1"
+	}
+}
