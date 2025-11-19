@@ -32,6 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/
 #
 # Option B - Formal PRD:
 #   Paste written PRD, then: /plan
+/plan
 
 # 4. Start working on tasks
 /start
@@ -1402,23 +1403,24 @@ systemctl --user restart agent-mail
 
 ## 🔧 Troubleshooting
 
-### Agent Mail Server Not Responding
+### Agent Mail Database Issues
 
-**Symptoms:** Commands timeout, tools fail with connection errors
+**Symptoms:** Commands fail with "database locked" or "unable to open database"
 
 **Solution:**
 ```bash
-# Check if server is running
-systemctl --user status agent-mail
+# Check if database exists
+ls -lh ~/.agent-mail.db
 
-# If not running, start it
-systemctl --user start agent-mail
+# Check database integrity
+sqlite3 ~/.agent-mail.db "PRAGMA integrity_check;"
 
-# View logs
-journalctl --user -u agent-mail -f
+# If corrupted, reinitialize (WARNING: loses data)
+mv ~/.agent-mail.db ~/.agent-mail.db.backup
+sqlite3 ~/.agent-mail.db < ~/code/jomarchy-agent-tools/mail/schema.sql
 
-# If still failing, restart
-systemctl --user restart agent-mail
+# Check permissions
+chmod 644 ~/.agent-mail.db
 ```
 
 ### FILE_RESERVATION_CONFLICT Error
