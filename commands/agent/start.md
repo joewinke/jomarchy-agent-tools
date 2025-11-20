@@ -774,14 +774,19 @@ When `TASK_MODE=bulk` is detected:
 3. If found: displays that agent name
 4. If not found: checks `$AGENT_NAME` env var (fallback)
 
+**Why PPID-based tracking?**
+
+Previous approach used a shared file `.claude/current-session-id.txt` which caused race conditions when multiple Claude Code instances ran simultaneously. PPID-based tracking solves this by giving each process its own unique file.
+
 **Why this matters:**
-- Supports multiple concurrent Claude Code sessions
-- Each terminal can have a different agent
+- Prevents race conditions between concurrent Claude Code sessions
+- Each terminal can have a different agent identity
 - Statusline always shows correct agent for YOUR session
+- Process isolation ensures no conflicts
 
 **File locations:**
-- `/tmp/claude-session-${PPID}.txt` - Written by statusline (your session ID, PPID-based)
-- `.claude/agent-{session_id}.txt` - Written by this command (your agent name)
+- `/tmp/claude-session-${PPID}.txt` - Written by statusline (your session ID, PPID-based, auto-deleted on exit)
+- `.claude/agent-{session_id}.txt` - Written by this command (your agent name, persistent)
 
 **CRITICAL Implementation Detail:**
 

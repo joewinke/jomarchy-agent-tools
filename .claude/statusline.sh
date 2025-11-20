@@ -80,8 +80,24 @@ fi
 
 # Store session_id for slash commands to access
 # (Commands don't get JSON input, so we persist it for them)
-# Uses PPID (parent process ID) for process isolation across multiple terminals
-# This prevents race conditions when multiple Claude Code instances run simultaneously
+#
+# PPID-BASED SESSION TRACKING:
+# Uses PPID (parent process ID) for process isolation across multiple terminals.
+#
+# WHY PPID? Prevents race conditions that occurred with shared file approach:
+#   - Old approach: .claude/current-session-id.txt (shared by all sessions)
+#   - Problem: Multiple terminals would overwrite each other's session IDs
+#   - Solution: Each process gets its own /tmp/claude-session-${PPID}.txt file
+#
+# PPID guarantees:
+#   - Unique per terminal (each Claude Code instance has different PPID)
+#   - No conflicts between concurrent sessions
+#   - Auto-cleanup when process exits (OS deletes /tmp files)
+#
+# File locations:
+#   - /tmp/claude-session-${PPID}.txt → session ID (process-specific, auto-deleted)
+#   - .claude/agent-${session_id}.txt → agent name (project-specific, persistent)
+#
 if [[ -n "$session_id" ]]; then
     echo "$session_id" > "/tmp/claude-session-${PPID}.txt" 2>/dev/null
 fi

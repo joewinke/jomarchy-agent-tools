@@ -98,7 +98,56 @@ All three sessions work independently with their own agent identities.
 
 **These files are session-specific** - don't commit `agent-*.txt` files to git (they're per-developer session).
 
-**PPID-based tracking:** Uses parent process ID for race-free multi-terminal support.
+### Why PPID-Based Session Tracking?
+
+**The Problem: Race Conditions with Shared Files**
+
+Initially, we used a shared file `.claude/current-session-id.txt` that all Claude Code instances would read/write. This caused race conditions:
+
+```bash
+# Terminal 1 (FreeMarsh) writes session ID
+echo "session-abc" > .claude/current-session-id.txt
+
+# Terminal 2 (PaleStar) writes IMMEDIATELY after
+echo "session-xyz" > .claude/current-session-id.txt  # Overwrites!
+
+# Terminal 1 tries to read its session ID
+cat .claude/current-session-id.txt  # Gets "session-xyz" - WRONG!
+```
+
+**The Solution: PPID-Based Process Isolation**
+
+Each Claude Code session runs in a unique process with its own Parent Process ID (PPID). We use this for isolation:
+
+```bash
+# Terminal 1: PPID = 12345
+/tmp/claude-session-12345.txt → "session-abc"
+
+# Terminal 2: PPID = 67890
+/tmp/claude-session-67890.txt → "session-xyz"
+
+# No conflicts! Each process has its own file.
+```
+
+**File Lifecycle:**
+- **Creation**: Statusline creates `/tmp/claude-session-${PPID}.txt` on first render
+- **Updates**: Statusline updates the file on every render (writes current session ID)
+- **Cleanup**: OS automatically deletes `/tmp` files when process exits
+- **Location**: `/tmp` (not `.claude/`) because it's process-specific, not project-specific
+
+**Multiple Terminals Example:**
+
+```bash
+# Terminal 1 (PPID: 12345)
+/tmp/claude-session-12345.txt → "a019c84c..."
+.claude/agent-a019c84c....txt → "FreeMarsh"
+
+# Terminal 2 (PPID: 67890)
+/tmp/claude-session-67890.txt → "9b2a2fac..."
+.claude/agent-9b2a2fac....txt → "PaleStar"
+
+# Each terminal has independent session tracking - no race conditions!
+```
 
 ### Troubleshooting Statusline Issues
 
