@@ -5,7 +5,7 @@
  * with color-coded thresholds and detailed breakdowns.
  */
 
-import type { Task, Agent } from '$lib/stores/orchestration.svelte';
+import type { Task, Agent } from '$lib/stores/agents.svelte';
 
 /**
  * Estimate hours for a single task based on priority, type, and labels

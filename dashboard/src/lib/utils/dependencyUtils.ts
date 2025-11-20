@@ -5,7 +5,7 @@
  * and determine if tasks can be assigned.
  */
 
-import type { Task } from '$lib/stores/orchestration.svelte';
+import type { Task } from '$lib/stores/agents.svelte';
 
 export interface DependencyStatus {
 	hasBlockers: boolean;

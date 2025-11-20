@@ -1,8 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
-	import TaskQueue from '$lib/components/orchestration/TaskQueue.svelte';
-	import AgentGrid from '$lib/components/orchestration/AgentGrid.svelte';
-	import SystemCapacityBar from '$lib/components/orchestration/SystemCapacityBar.svelte';
+	import TaskQueue from '$lib/components/agents/TaskQueue.svelte';
+	import AgentGrid from '$lib/components/agents/AgentGrid.svelte';
+	import SystemCapacityBar from '$lib/components/agents/SystemCapacityBar.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 
 	let tasks = $state([]);

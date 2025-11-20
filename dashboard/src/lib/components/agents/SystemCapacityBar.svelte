@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CapacityBar from '$lib/components/CapacityBar.svelte';
 	import { calculateSystemCapacity } from '$lib/utils/capacityCalculations';
-	import type { Agent, Task } from '$lib/stores/orchestration.svelte';
+	import type { Agent, Task } from '$lib/stores/agents.svelte';
 
 	/**
 	 * System-wide capacity bar showing aggregate load across all agents

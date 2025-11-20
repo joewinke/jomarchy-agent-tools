@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Task } from '$lib/stores/orchestration.svelte';
+	import type { Task } from '$lib/stores/agents.svelte';
 	import {
 		analyzeDependencies,
 		getDependencyBadge,

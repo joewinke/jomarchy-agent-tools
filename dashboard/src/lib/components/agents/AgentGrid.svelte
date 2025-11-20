@@ -114,7 +114,7 @@
 		try {
 			// Batch assign all tasks via API
 			const promises = assignments.map(assignment =>
-				fetch('/api/orchestration', {
+				fetch('/api/tasks/assign', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({

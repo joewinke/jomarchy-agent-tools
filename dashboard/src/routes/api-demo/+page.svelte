@@ -1,27 +1,27 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { orchestration } from '$lib/stores/orchestration.svelte';
+	import { agents as agentsStore } from '$lib/stores/agents.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 
-	// Reactive state derived from orchestration store
-	const agents = $derived(orchestration.agents);
-	const reservations = $derived(orchestration.reservations);
-	const tasks = $derived(orchestration.tasks);
-	const taskStats = $derived(orchestration.taskStats);
-	const activeAgents = $derived(orchestration.activeAgents);
-	const idleAgents = $derived(orchestration.idleAgents);
-	const loading = $derived(orchestration.loading);
-	const error = $derived(orchestration.error);
+	// Reactive state derived from agents store
+	const agents = $derived(agentsStore.agents);
+	const reservations = $derived(agentsStore.reservations);
+	const tasks = $derived(agentsStore.tasks);
+	const taskStats = $derived(agentsStore.taskStats);
+	const activeAgents = $derived(agentsStore.activeAgents);
+	const idleAgents = $derived(agentsStore.idleAgents);
+	const loading = $derived(agentsStore.loading);
+	const error = $derived(agentsStore.error);
 
 	// Manual API test state
-	let selectedEndpoint = $state('/api/orchestration');
+	let selectedEndpoint = $state('/api/agents?full=true');
 	let apiResponse = $state('');
 	let apiLoading = $state(false);
 
 	// Start polling when component mounts
 	$effect(() => {
-		orchestration.startPolling();
-		return () => orchestration.stopPolling();
+		agentsStore.startPolling();
+		return () => agentsStore.stopPolling();
 	});
 
 	// Manual API fetch for testing
@@ -39,7 +39,7 @@
 	}
 
 	const endpoints = [
-		'/api/orchestration',
+		'/api/agents?full=true',
 		'/api/agents',
 		'/api/reservations',
 		'/api/tasks',
@@ -53,9 +53,9 @@
 	<div class="navbar bg-base-100 border-b border-base-300">
 		<div class="flex-1">
 			<div>
-				<h1 class="text-2xl font-bold text-base-content">Agent Orchestration API Demo</h1>
+				<h1 class="text-2xl font-bold text-base-content">Agents API Demo</h1>
 				<p class="text-sm text-base-content/70">
-					Live integration showcase for /api/orchestration endpoint + reactive store
+					Live integration showcase for /api/agents endpoint + reactive store
 				</p>
 			</div>
 		</div>
@@ -82,7 +82,7 @@
 						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					></path>
 				</svg>
-				<span>Loading orchestration data...</span>
+				<span>Loading agent data...</span>
 			</div>
 		{:else if error}
 			<div class="alert alert-error">
@@ -129,16 +129,16 @@
 					<div class="space-y-4">
 						<div class="mockup-code text-xs">
 							<pre><code>{`// Import the store
-import { orchestration } from '$lib/stores/orchestration.svelte';
+import { agents as agentsStore } from '$lib/stores/agents.svelte';
 
 // Use reactive state
-const agents = $derived(orchestration.agents);
-const tasks = $derived(orchestration.tasks);
+const agents = $derived(agentsStore.agents);
+const tasks = $derived(agentsStore.tasks);
 
 // Start polling
 $effect(() => {
-  orchestration.startPolling();
-  return () => orchestration.stopPolling();
+  agentsStore.startPolling();
+  return () => agentsStore.stopPolling();
 });`}</code></pre>
 						</div>
 
@@ -418,7 +418,7 @@ $effect(() => {
 				<div class="prose">
 					<h3>How to Use the Orchestration Store</h3>
 					<ol>
-						<li>Import the store: <code>import {'{ orchestration }'} from '$lib/stores/orchestration.svelte';</code></li>
+						<li>Import the store: <code>import {'{ agents }'} from '$lib/stores/agents.svelte';</code></li>
 						<li>Use <code>$derived()</code> to access reactive state</li>
 						<li>Start polling in <code>$effect()</code> hook</li>
 						<li>Clean up on unmount by returning cleanup function</li>
@@ -426,19 +426,19 @@ $effect(() => {
 
 					<h3>Available Data</h3>
 					<ul>
-						<li><code>orchestration.agents</code> - All registered agents with stats</li>
-						<li><code>orchestration.reservations</code> - Active file locks</li>
-						<li><code>orchestration.tasks</code> - Tasks from all projects</li>
-						<li><code>orchestration.taskStats</code> - Aggregated statistics</li>
-						<li><code>orchestration.activeAgents</code> - Filtered active agents</li>
-						<li><code>orchestration.idleAgents</code> - Filtered idle agents</li>
-						<li><code>orchestration.loading</code> - Loading state</li>
-						<li><code>orchestration.error</code> - Error message if any</li>
+						<li><code>agents.agents</code> - All registered agents with stats</li>
+						<li><code>agents.reservations</code> - Active file locks</li>
+						<li><code>agents.tasks</code> - Tasks from all projects</li>
+						<li><code>agents.taskStats</code> - Aggregated statistics</li>
+						<li><code>agents.activeAgents</code> - Filtered active agents</li>
+						<li><code>agents.idleAgents</code> - Filtered idle agents</li>
+						<li><code>agents.loading</code> - Loading state</li>
+						<li><code>agents.error</code> - Error message if any</li>
 					</ul>
 
 					<h3>API Endpoints</h3>
 					<ul>
-						<li><code>/api/orchestration</code> - Unified endpoint (recommended)</li>
+						<li><code>/api/agents?full=true</code> - Unified endpoint (recommended)</li>
 						<li><code>/api/agents</code> - Agent data only</li>
 						<li><code>/api/reservations</code> - File reservations only</li>
 						<li><code>/api/tasks</code> - Tasks only</li>
