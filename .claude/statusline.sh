@@ -206,11 +206,39 @@ if [[ -z "$agent_name" ]]; then
     exit 0
 fi
 
-# Get current task from file reservations
+# Get current task - check BOTH Beads tasks AND file reservations
+# Priority 1: Check Beads for in_progress tasks assigned to this agent
+# Priority 2: Check file reservations for task ID
 task_id=""
 task_title=""
+task_priority=""
+task_progress=""
 
-if command -v am-reservations &>/dev/null; then
+# Priority 1: Check Beads for in_progress tasks (matches dashboard logic)
+if command -v bd &>/dev/null; then
+    # Change to project directory if provided
+    if [[ -n "$cwd" ]] && [[ -d "$cwd" ]]; then
+        cd "$cwd" 2>/dev/null || true
+    fi
+
+    # Get in_progress task assigned to this agent
+    task_json=$(bd list --json 2>/dev/null | jq -r --arg agent "$agent_name" '.[] | select(.assignee == $agent and .status == "in_progress") | @json' | head -1)
+
+    if [[ -n "$task_json" ]]; then
+        task_id=$(echo "$task_json" | jq -r '.id // empty')
+        task_title=$(echo "$task_json" | jq -r '.title // empty')
+        task_priority=$(echo "$task_json" | jq -r '.priority // empty')
+        task_progress=$(echo "$task_json" | jq -r '.progress // empty')
+
+        # Truncate title if too long
+        if [[ ${#task_title} -gt 40 ]]; then
+            task_title="${task_title:0:37}..."
+        fi
+    fi
+fi
+
+# Priority 2: Fall back to file reservations if no in_progress task found
+if [[ -z "$task_id" ]] && command -v am-reservations &>/dev/null; then
     # Get the most recent reservation for this agent and extract task ID from reason
     reservation_info=$(am-reservations --agent "$agent_name" 2>/dev/null)
 
@@ -218,27 +246,19 @@ if command -v am-reservations &>/dev/null; then
         # Extract task ID from reason field (format: "task-id: description" or just "task-id")
         # Match new Beads format: jat-XXX (3 alphanumeric characters after jat-)
         task_id=$(echo "$reservation_info" | grep "^Reason:" | sed 's/^Reason: //' | grep -oE 'jat-[a-z0-9]{3}\b' | head -1)
-    fi
-fi
 
-# If we have a task ID, get task details from Beads
-task_priority=""
-task_progress=""
+        # If we found a task ID from reservation, get its details from Beads
+        if [[ -n "$task_id" ]] && command -v bd &>/dev/null; then
+            task_json=$(bd show "$task_id" --json 2>/dev/null)
+            task_title=$(echo "$task_json" | jq -r '.[0].title // empty')
+            task_priority=$(echo "$task_json" | jq -r '.[0].priority // empty')
+            task_progress=$(echo "$task_json" | jq -r '.[0].progress // empty')
 
-if [[ -n "$task_id" ]] && command -v bd &>/dev/null; then
-    # Change to project directory if provided
-    if [[ -n "$cwd" ]] && [[ -d "$cwd" ]]; then
-        cd "$cwd" 2>/dev/null || true
-    fi
-
-    task_json=$(bd show "$task_id" --json 2>/dev/null)
-    task_title=$(echo "$task_json" | jq -r '.[0].title // empty')
-    task_priority=$(echo "$task_json" | jq -r '.[0].priority // empty')
-    task_progress=$(echo "$task_json" | jq -r '.[0].progress // empty')
-
-    # Truncate title if too long
-    if [[ ${#task_title} -gt 40 ]]; then
-        task_title="${task_title:0:37}..."
+            # Truncate title if too long
+            if [[ ${#task_title} -gt 40 ]]; then
+                task_title="${task_title:0:37}..."
+            fi
+        fi
     fi
 fi
 
