@@ -15,7 +15,7 @@
 #   - Dependency awareness
 #   - Completion notifications
 #
-# Based on real jomarchy-agent-tools development session!
+# Based on real jat (Jomarchy Agent Tools) development session!
 #
 
 set -euo pipefail

@@ -84,9 +84,9 @@ for repo_dir in "$CODE_DIR"/*; do
 
     if [ ! -f "$CLAUDE_MD" ]; then
         # Copy template
-        # Try jomarchy-agent-tools first, then fall back to jomarchy
-        if [ -f "$HOME/code/jomarchy-agent-tools/templates/project-claude.md" ]; then
-            TEMPLATE="$HOME/code/jomarchy-agent-tools/templates/project-claude.md"
+        # Try jat first, then fall back to jomarchy
+        if [ -f "$HOME/code/jat/templates/project-claude.md" ]; then
+            TEMPLATE="$HOME/code/jat/templates/project-claude.md"
         elif [ -f "$HOME/code/jomarchy/scripts/templates/project-claude.md" ]; then
             TEMPLATE="$HOME/code/jomarchy/scripts/templates/project-claude.md"
         else

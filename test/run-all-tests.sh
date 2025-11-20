@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Run all tests for jomarchy-agent-tools
+# Run all tests for jat (Jomarchy Agent Tools)
 #
 # Orchestrates all test scripts:
 #   - Node.js tests (test-beads.js, test-agent-mail.js)
@@ -31,7 +31,7 @@ FAILED=0
 TOTAL=0
 
 echo "════════════════════════════════════════════════════════════"
-echo "Running All Tests for jomarchy-agent-tools"
+echo "Running All Tests for JAT (Jomarchy Agent Tools)"
 echo "════════════════════════════════════════════════════════════"
 echo ""
 

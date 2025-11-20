@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Claude Code statusline for jomarchy-agent-tools
+# Claude Code statusline for jat (Jomarchy Agent Tools)
 # Shows: Agent Name | [Priority] Task ID - Task Title [Indicators]
 #
 # Features:
@@ -16,7 +16,7 @@
 # New sessions will show "no agent registered" until /register is run.
 #
 # Example output:
-#   jomarchy-agent-tools | no agent registered (new session, run /register)
+#   jat | no agent registered (new session, run /register)
 #   FreeMarsh | [P1] jomarchy-agent-tools-4p0 - Demo: Frontend... [🔒2 📬1 ⏱45m]
 #   FreeMarsh | idle [📬2]
 #
@@ -59,7 +59,7 @@ fi
 
 # If no agent name, show "not registered" status
 if [[ -z "$agent_name" ]]; then
-    echo -e "${GRAY}jomarchy-agent-tools${RESET} ${GRAY}|${RESET} ${CYAN}no agent registered${RESET}"
+    echo -e "${GRAY}jat${RESET} ${GRAY}|${RESET} ${CYAN}no agent registered${RESET}"
     exit 0
 fi
 
@@ -213,7 +213,7 @@ elif [[ -n "$agent_name" ]]; then
     fi
 else
     # Fallback
-    status_line="${GRAY}jomarchy-agent-tools${RESET}"
+    status_line="${GRAY}jat${RESET}"
 fi
 
 echo -e "$status_line"

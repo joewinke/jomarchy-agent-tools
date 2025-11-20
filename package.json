@@ -1,5 +1,5 @@
 {
-  "name": "jomarchy-agent-tools",
+  "name": "jat",
   "version": "1.0.0",
   "type": "module",
   "description": "Agent Mail and supporting tools for multi-agent coordination",
@@ -9,11 +9,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/joewinke/jomarchy-agent-tools.git"
+    "url": "git+https://github.com/joewinke/jat.git"
   },
-  "homepage": "https://github.com/joewinke/jomarchy-agent-tools#readme",
+  "homepage": "https://github.com/joewinke/jat#readme",
   "bugs": {
-    "url": "https://github.com/joewinke/jomarchy-agent-tools/issues"
+    "url": "https://github.com/joewinke/jat/issues"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
