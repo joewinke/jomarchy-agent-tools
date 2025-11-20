@@ -80,8 +80,10 @@ fi
 
 # Store session_id for slash commands to access
 # (Commands don't get JSON input, so we persist it for them)
-if [[ -n "$session_id" ]] && [[ -n "$cwd" ]]; then
-    echo "$session_id" > "$cwd/.claude/current-session-id.txt" 2>/dev/null
+# Uses PPID (parent process ID) for process isolation across multiple terminals
+# This prevents race conditions when multiple Claude Code instances run simultaneously
+if [[ -n "$session_id" ]]; then
+    echo "$session_id" > "/tmp/claude-session-${PPID}.txt" 2>/dev/null
 fi
 
 # Get agent name from session-specific file

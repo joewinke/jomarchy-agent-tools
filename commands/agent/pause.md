@@ -85,7 +85,7 @@ fi
 
 ```bash
 # Get session ID and agent name
-SESSION_ID=$(cat .claude/current-session-id.txt 2>/dev/null | tr -d '\n')
+SESSION_ID=$(cat /tmp/claude-session-${PPID}.txt 2>/dev/null | tr -d '\n')
 
 if [[ -n "$SESSION_ID" ]] && [[ -f ".claude/agent-${SESSION_ID}.txt" ]]; then
   AGENT_NAME=$(cat ".claude/agent-${SESSION_ID}.txt" 2>/dev/null | tr -d '\n')

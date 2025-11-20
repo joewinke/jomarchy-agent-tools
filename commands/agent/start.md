@@ -61,7 +61,7 @@ fi
 **Use Read tool to check session status** (NOT bash command substitution):
 
 1. **Read session ID file:**
-   - Use Read tool on `.claude/current-session-id.txt`
+   - Use Read tool on `/tmp/claude-session-${PPID}.txt`
    - Extract session ID and trim whitespace (e.g., "abc123")
 
 2. **Check if session agent file exists:**
@@ -71,7 +71,7 @@ fi
    - If doesn't exist: AGENT_REGISTERED=false
 
 **Example:**
-- Read(.claude/current-session-id.txt) → extract "abc123"
+- Read(/tmp/claude-session-${PPID}.txt) → extract "abc123"
 - Read(.claude/agent-abc123.txt) → if exists: get "SilverWind", set AGENT_REGISTERED=true
 - If file doesn't exist: set AGENT_REGISTERED=false
 
@@ -95,12 +95,12 @@ fi
 ```
 
 **Then use Read/Write tools (NOT bash command substitution):**
-1. Use Read tool to read `.claude/current-session-id.txt`
+1. Use Read tool to read `/tmp/claude-session-${PPID}.txt`
 2. Extract session ID from the content (trim newlines)
 3. Use Write tool to write `$AGENT_NAME` to `.claude/agent-{session_id}.txt`
 
 **Example implementation:**
-- Read(.claude/current-session-id.txt) → extract "f435fd91-..."
+- Read(/tmp/claude-session-${PPID}.txt) → extract "f435fd91-..."
 - Write(.claude/agent-f435fd91-....txt, "WiseCanyon")
 
 **Why this approach:**
@@ -216,7 +216,7 @@ fi
 After registering the agent, use these steps to write to the session file:
 
 1. **Read session ID:**
-   - Use Read tool on `.claude/current-session-id.txt`
+   - Use Read tool on `/tmp/claude-session-${PPID}.txt`
    - Extract session ID and trim whitespace
 
 2. **Write agent name to session file:**
@@ -522,8 +522,8 @@ When `TASK_MODE=bulk` is detected:
 ## Session Awareness Details
 
 **How statusline works:**
-1. Statusline reads `.claude/current-session-id.txt` (e.g., "abc123")
-2. Looks for `.claude/agent-abc123.txt` (session-specific file)
+1. Statusline writes session ID to `/tmp/claude-session-${PPID}.txt` (PPID = parent process ID)
+2. Looks for `.claude/agent-{session_id}.txt` (session-specific file)
 3. If found: displays that agent name
 4. If not found: checks `$AGENT_NAME` env var (fallback)
 
@@ -533,7 +533,7 @@ When `TASK_MODE=bulk` is detected:
 - Statusline always shows correct agent for YOUR session
 
 **File locations:**
-- `.claude/current-session-id.txt` - Written by statusline (your session ID)
+- `/tmp/claude-session-${PPID}.txt` - Written by statusline (your session ID, PPID-based)
 - `.claude/agent-{session_id}.txt` - Written by this command (your agent name)
 
 **CRITICAL Implementation Detail:**
@@ -542,11 +542,11 @@ Always use **Read/Write tools** (NOT bash command substitution) when writing to 
 
 ```
 ✅ CORRECT:
-1. Read(.claude/current-session-id.txt) → get "abc123"
+1. Read(/tmp/claude-session-${PPID}.txt) → get "abc123"
 2. Write(.claude/agent-abc123.txt, "AgentName")
 
 ❌ WRONG:
-SESSION_ID=$(cat .claude/current-session-id.txt) && echo "Name" > ".claude/agent-${SESSION_ID}.txt"
+SESSION_ID=$(cat /tmp/claude-session-${PPID}.txt) && echo "Name" > ".claude/agent-${SESSION_ID}.txt"
 ```
 
 **Why:** The Bash tool can't handle command substitution `$(...)` with file paths reliably. Using Read/Write tools ensures the session file is written correctly every time.

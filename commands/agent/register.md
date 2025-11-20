@@ -24,7 +24,7 @@ Follow these steps in order:
 3.5. **CRITICAL:** Update session file for statusline (session-aware persistence):
    ```bash
    # Get session ID
-   SESSION_ID=$(cat .claude/current-session-id.txt 2>/dev/null | tr -d '\n')
+   SESSION_ID=$(cat /tmp/claude-session-${PPID}.txt 2>/dev/null | tr -d '\n')
 
    # Write to session file (PRIMARY - statusline reads this)
    if [[ -n "$SESSION_ID" ]]; then
