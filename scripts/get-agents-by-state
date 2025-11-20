@@ -74,11 +74,19 @@ else
     TASKS_JSON="$TASKS_RAW"
 fi
 
-# Categorize agents using jq
-echo "$AGENTS_JSON" | jq -r \
-    --argjson reservations "$RESERVATIONS_JSON" \
-    --argjson tasks "$TASKS_JSON" \
-    '
+# Categorize agents using jq (use temp files to avoid "Argument list too long")
+# Write JSON data to temp files
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf '$TEMP_DIR'" EXIT
+
+echo "$AGENTS_JSON" > "$TEMP_DIR/agents.json"
+echo "$RESERVATIONS_JSON" > "$TEMP_DIR/reservations.json"
+echo "$TASKS_JSON" > "$TEMP_DIR/tasks.json"
+
+jq -r \
+    --slurpfile reservations "$TEMP_DIR/reservations.json" \
+    --slurpfile tasks "$TEMP_DIR/tasks.json" \
+    '$reservations[0] as $reservations | $tasks[0] as $tasks |
     # Helper function to format time ago
     def format_time_ago(timestamp):
         if timestamp == null or timestamp == "" then "Never"
@@ -175,4 +183,4 @@ echo "$AGENTS_JSON" | jq -r \
             }
         ]
     }
-    '
+    ' "$TEMP_DIR/agents.json"

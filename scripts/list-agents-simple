@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Simple agent lister (fast, no categorization)
+# Just lists all agents - for use in /agent:start
+
+set -e
+
+# Get all agents
+AGENTS=$(am-agents --json 2>/dev/null)
+
+if [[ -z "$AGENTS" ]] || [[ "$AGENTS" == "null" ]]; then
+    echo '{"agents":[],"count":0}'
+    exit 0
+fi
+
+# Extract just agent names and last active times
+echo "$AGENTS" | jq '{
+    agents: . | map({
+        name: .name,
+        last_active: .last_active,
+        program: .program,
+        model: .model
+    }),
+    count: (. | length)
+}'
