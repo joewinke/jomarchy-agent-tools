@@ -46,16 +46,16 @@
 			timeSinceActive = Date.now() - lastActivity.getTime();
 		}
 
-		// Priority 1: LIVE - Very recent activity (< 1 minute)
-		// Agent is truly responsive right now
-		if (timeSinceActive < 60000) { // < 1 minute
-			return 'live';
+		// Priority 1: WORKING - Has active task or file locks
+		// Agent has work in progress (takes priority over recency)
+		if (hasInProgressTask || hasActiveLocks) {
+			return 'working';
 		}
 
-		// Priority 2: WORKING - Recently working (1-10 minutes) with active task/locks
-		// Agent was working very recently and has work in progress
-		if (timeSinceActive < 600000 && (hasInProgressTask || hasActiveLocks)) { // < 10 minutes
-			return 'working';
+		// Priority 2: LIVE - Very recent activity (< 1 minute) without active work
+		// Agent is truly responsive right now but not actively working
+		if (timeSinceActive < 60000) { // < 1 minute
+			return 'live';
 		}
 
 		// Priority 3: ACTIVE - Recent activity (< 10 minutes) but no current work

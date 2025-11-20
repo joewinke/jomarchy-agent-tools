@@ -164,14 +164,16 @@ class AgentsStore {
 			timeSinceActive = Date.now() - lastActivity.getTime();
 		}
 
-		// Priority 1: LIVE - Very recent activity (< 1 minute)
-		if (timeSinceActive < 60000) {
-			return 'live';
+		// Priority 1: WORKING - Has active task or file locks
+		// Agent has work in progress (takes priority over recency)
+		if (hasInProgressTask || hasActiveLocks) {
+			return 'working';
 		}
 
-		// Priority 2: WORKING - Recently working (1-10 minutes) with active task/locks
-		if (timeSinceActive < 600000 && (hasInProgressTask || hasActiveLocks)) {
-			return 'working';
+		// Priority 2: LIVE - Very recent activity (< 1 minute) without active work
+		// Agent is responsive but not actively working
+		if (timeSinceActive < 60000) {
+			return 'live';
 		}
 
 		// Priority 3: ACTIVE - Recent activity (< 10 minutes)
