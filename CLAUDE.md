@@ -572,8 +572,16 @@ For multi-agent coordination. See `~/.claude/CLAUDE.md` for full Agent Mail docu
 # Reserve files
 am-reserve "src/**/*.ts" --agent AgentName --ttl 3600 --exclusive --reason "task-abc"
 
-# Send message
+# Send messages
+# Basic messaging
 am-send "Subject" "Body" --from Agent1 --to Agent2 --thread task-abc
+
+# Broadcast messaging (multi-agent)
+am-send "Update" "Status" --from Dev --to @active --importance high                    # Active agents (last 60 min)
+am-send "Urgent" "Need help" --from Dev --to @active --active-window 15 --importance urgent  # Custom window (15 min)
+am-send "Team sync" "Sprint done" --from Lead --to @project:jat                        # All agents in project
+am-send "Critical" "System down" --from Monitor --to @all --importance urgent          # ALL agents (even offline)
+am-send "Review needed" "PR ready" --from Dev --to @active,SeniorDev                   # Mixed (broadcast + specific)
 
 # Check inbox
 am-inbox AgentName --unread
