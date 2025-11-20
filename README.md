@@ -994,6 +994,40 @@ For each git repository in `~/code/*`:
 
 **Example scenario: 60 agents fixing 1,231 TypeScript errors in 18 minutes** (via `/start` detecting bulk remediation pattern and deploying agent swarm automatically)
 
+### 9. Session-Aware Statusline
+
+**Visual agent identity and task progress in your terminal statusline**
+
+The statusline displays your agent name, current task, and real-time indicators directly in your terminal prompt:
+
+```
+FreeMarsh | [P1] jomarchy-agent-tools-4p0 - Demo: Frontend... [🔒2 📬1 ⏱45m]
+```
+
+**Features:**
+- **Session-aware:** Each Claude Code session maintains its own agent identity
+- **Multi-agent support:** Run 9+ concurrent agents with independent statuslines
+- **Real-time indicators:**
+  - 🔒 Active file reservations
+  - 📬 Unread Agent Mail messages
+  - ⏱ Time remaining on shortest lock
+  - % Task progress
+  - [P0/P1/P2] Priority badges (color-coded: Red/Yellow/Green)
+
+**How it works:**
+1. Claude Code passes unique `session_id` via JSON to statusline
+2. `/register` writes agent name to `.claude/agent-{session_id}.txt`
+3. Statusline reads session-specific file to display identity
+4. Each session = independent agent identity (no conflicts!)
+
+**Files created:**
+- `.claude/agent-{session_id}.txt` - Session-specific agent name
+- `.claude/current-session-id.txt` - Latest session ID (for slash commands)
+
+**Setup:** Automatically configured by installer. Works immediately after `/register`.
+
+**See also:** `CLAUDE.md` section "Session-Aware Statusline" for complete documentation.
+
 ---
 
 ## How It Works

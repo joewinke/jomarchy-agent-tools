@@ -28,6 +28,74 @@ db-schema
 browser-start.js --help
 ```
 
+## Session-Aware Statusline
+
+**The statusline automatically displays your agent identity and status for each Claude Code session.**
+
+### How It Works
+
+Each Claude Code session has a unique `session_id`. The statusline uses this to track agent identity independently per session:
+
+```
+Session 1: FreeMarsh  | [P1] task-abc - Building dashboard [🔒2 📬1 ⏱45m]
+Session 2: PaleStar   | idle [📬3]
+Session 3: StrongShore | [P0] task-xyz - Critical bug fix [🔒1]
+```
+
+### Registration
+
+When you run `/agent:register`, it automatically:
+1. Registers your agent in Agent Mail
+2. Writes agent name to `.claude/agent-{session_id}.txt`
+3. Statusline reads from that file and displays your identity
+
+**No manual setup needed** - just register and the statusline updates!
+
+### What the Statusline Shows
+
+**Format:** `AgentName | [Priority] Task ID - Task Title [Indicators]`
+
+**Indicators:**
+- 🔒N - Active file reservations
+- 📬N - Unread messages in inbox
+- ⏱Xm/Xh - Time until lock expires
+- N% - Task progress (if tracked)
+
+**Examples:**
+```
+FreeMarsh | [P1] jomarchy-agent-tools-m95 - Update /start... [🔒2 📬1 ⏱45m]
+FreeMarsh | idle [📬3]
+jomarchy-agent-tools | no agent registered
+```
+
+### Multi-Agent Sessions
+
+**Run as many agents as you want simultaneously!** Each session maintains its own identity:
+
+```bash
+# Terminal 1
+/agent:register  # Choose FreeMarsh
+# Statusline shows: FreeMarsh | ...
+
+# Terminal 2
+/agent:register  # Choose PaleStar
+# Statusline shows: PaleStar | ...
+
+# Terminal 3
+/agent:register  # Choose StrongShore
+# Statusline shows: StrongShore | ...
+```
+
+All three sessions work independently with their own agent identities.
+
+### Files Created
+
+- `.claude/agent-{session_id}.txt` - Your agent name for this session
+- `.claude/current-session-id}.txt` - Latest session ID (for slash commands)
+- `.claude/statusline.sh` - The statusline script
+
+**These files are session-specific** - don't commit `agent-*.txt` files to git (they're per-developer session).
+
 ## Dashboard Development
 
 **The Beads Task Dashboard is a SvelteKit 5 application in the `dashboard/` directory.**
@@ -104,8 +172,8 @@ For multi-agent coordination. See `~/.claude/CLAUDE.md` for full Agent Mail docu
 **Quick Reference:**
 ```bash
 # Register agent (required for each session)
-am-register --name AgentName --program claude-code --model sonnet-4.5
-export AGENT_NAME=AgentName  # Required for statusline to work
+# Use /agent:register slash command - automatically updates statusline!
+# Or manually: am-register --name AgentName --program claude-code --model sonnet-4.5
 
 # Reserve files
 am-reserve "src/**/*.ts" --agent AgentName --ttl 3600 --exclusive --reason "bd-123"
