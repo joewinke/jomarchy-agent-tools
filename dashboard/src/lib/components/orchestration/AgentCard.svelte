@@ -5,39 +5,86 @@
 	let isAssigning = $state(false);
 	let hasConflict = $state(false);
 	let conflictReasons = $state([]);
+	let showDeleteModal = $state(false);
+	let isDeleting = $state(false);
+
+	// Quick actions menu state
+	let showQuickActions = $state(false);
+	let quickActionsX = $state(0);
+	let quickActionsY = $state(0);
+	let quickActionsLoading = $state(null); // Track which action is loading
+	let showInboxModal = $state(false);
+	let inboxMessages = $state([]);
+	let showReservationsModal = $state(false);
+	let reservationsList = $state([]);
+	let showSendMessageModal = $state(false);
+	let messageSubject = $state('');
+	let messageBody = $state('');
+	let showClearQueueModal = $state(false);
+	let showUnassignModal = $state(false);
 
 	// Compute agent status using $derived
+	// States: working (has in-progress tasks OR locks matching assigned task) > active (recent activity or locks) > idle (within 1h) > offline (>1h)
 	const agentStatus = $derived(() => {
-		// Use agent.active from API (computed based on reservations + in-progress tasks)
-		if (agent.active) {
-			return agent.in_progress_tasks > 0 ? 'active' : 'idle';
+		// Priority 1a: Has in-progress tasks
+		if (agent.in_progress_tasks > 0) {
+			return 'working';
 		}
-		// Check if agent has been active recently (based on last_active_ts timestamp)
-		// Database timestamps are in UTC without 'Z' suffix - convert to ISO format
+
+		// Priority 1b: Has file locks with reason matching an assigned task ID (agent is actively working)
+		const agentTaskLocks = agentLocks().filter(lock => {
+			const reason = lock.reason || '';
+			// Check if lock reason matches any task assigned to this agent
+			return tasks.some(t =>
+				t.assignee === agent.name &&
+				(t.status === 'open' || t.status === 'in_progress') &&
+				reason.includes(t.id)
+			);
+		});
+		if (agentTaskLocks.length > 0) {
+			return 'working';
+		}
+
+		// Priority 2: Recently active or holding locks
+		const hasActiveLocks = agent.reservation_count > 0; // unexpired locks
 		if (agent.last_active_ts) {
 			const isoTimestamp = agent.last_active_ts.includes('T')
 				? agent.last_active_ts
 				: agent.last_active_ts.replace(' ', 'T') + 'Z';
 			const lastActivity = new Date(isoTimestamp);
-			if (Date.now() - lastActivity.getTime() < 3600000) {
-				// Active within last hour
+			const timeSinceActive = Date.now() - lastActivity.getTime();
+
+			// Active: within 5 minutes OR has locks within 1 hour
+			if (timeSinceActive < 300000) { // 5 minutes
+				return 'active';
+			}
+			if (hasActiveLocks && timeSinceActive < 3600000) { // has locks, within hour
+				return 'active';
+			}
+
+			// Idle: within 1 hour
+			if (timeSinceActive < 3600000) { // 1 hour
 				return 'idle';
 			}
 		}
+
+		// Offline: over 1 hour or never active
 		return 'offline';
 	});
 
 	// Get status badge class
 	function getStatusBadge(status) {
 		switch (status) {
+			case 'working':
+				return 'badge-info'; // Blue - actively coding
 			case 'active':
-				return 'badge-info'; // Blue
+				return 'badge-success'; // Green - ready and engaged
 			case 'idle':
-				return 'badge-success'; // Green
+				return 'badge-ghost'; // Gray - available but quiet
 			case 'blocked':
-				return 'badge-warning'; // Yellow
+				return 'badge-warning'; // Yellow - paused
 			case 'offline':
-				return 'badge-ghost'; // Gray
+				return 'badge-error'; // Red - disconnected
 			default:
 				return 'badge-ghost';
 		}
@@ -46,14 +93,16 @@
 	// Get status icon
 	function getStatusIcon(status) {
 		switch (status) {
+			case 'working':
+				return '⚙'; // Actively coding (gear will spin)
 			case 'active':
-				return '⚡'; // Working
+				return '✓'; // Ready and engaged
 			case 'idle':
-				return '✓'; // Ready
+				return '○'; // Available but quiet
 			case 'blocked':
 				return '⏸'; // Paused
 			case 'offline':
-				return '○'; // Offline
+				return '⏹'; // Disconnected
 			default:
 				return '?';
 		}
@@ -264,6 +313,177 @@
 		hasConflict = false;
 		conflictReasons = [];
 	}
+
+	// Handle agent deletion
+	async function handleDeleteAgent() {
+		isDeleting = true;
+		try {
+			const response = await fetch(`/api/agents/${agent.name}`, {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				const error = await response.json();
+				console.error('Failed to delete agent:', error);
+				alert(`Failed to delete agent: ${error.message || 'Unknown error'}`);
+				return;
+			}
+
+			// Success - close modal and refresh page
+			showDeleteModal = false;
+			window.location.reload();
+		} catch (error) {
+			console.error('Error deleting agent:', error);
+			alert(`Error deleting agent: ${error.message}`);
+		} finally {
+			isDeleting = false;
+		}
+	}
+
+	// Handle badge click for offline agents
+	function handleBadgeClick() {
+		if (agentStatus() === 'offline') {
+			showDeleteModal = true;
+		}
+	}
+
+	// Handle right-click to show quick actions menu
+	function handleContextMenu(event) {
+		event.preventDefault();
+		quickActionsX = event.clientX;
+		quickActionsY = event.clientY;
+		showQuickActions = true;
+	}
+
+	// Close quick actions menu
+	function closeQuickActions() {
+		showQuickActions = false;
+		quickActionsLoading = null;
+	}
+
+	// Quick Action: View agent's inbox
+	async function viewInbox() {
+		quickActionsLoading = 'inbox';
+		try {
+			const response = await fetch(`/api/agents/${agent.name}/inbox`);
+			if (!response.ok) throw new Error('Failed to fetch inbox');
+			const data = await response.json();
+			inboxMessages = data.messages || [];
+			showInboxModal = true;
+		} catch (error) {
+			console.error('Failed to view inbox:', error);
+			alert(`Failed to view inbox: ${error.message}`);
+		} finally {
+			quickActionsLoading = null;
+			closeQuickActions();
+		}
+	}
+
+	// Quick Action: View file locks
+	async function viewReservations() {
+		quickActionsLoading = 'reservations';
+		try {
+			const response = await fetch(`/api/agents/${agent.name}/reservations`);
+			if (!response.ok) throw new Error('Failed to fetch reservations');
+			const data = await response.json();
+			reservationsList = data.reservations || [];
+			showReservationsModal = true;
+		} catch (error) {
+			console.error('Failed to view reservations:', error);
+			alert(`Failed to view reservations: ${error.message}`);
+		} finally {
+			quickActionsLoading = null;
+			closeQuickActions();
+		}
+	}
+
+	// Quick Action: Send message
+	function openSendMessage() {
+		messageSubject = '';
+		messageBody = '';
+		showSendMessageModal = true;
+		closeQuickActions();
+	}
+
+	async function sendMessage() {
+		if (!messageSubject.trim() || !messageBody.trim()) {
+			alert('Please fill in both subject and message');
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/agents/${agent.name}/message`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					subject: messageSubject,
+					body: messageBody
+				})
+			});
+
+			if (!response.ok) throw new Error('Failed to send message');
+
+			showSendMessageModal = false;
+			alert('Message sent successfully!');
+		} catch (error) {
+			console.error('Failed to send message:', error);
+			alert(`Failed to send message: ${error.message}`);
+		}
+	}
+
+	// Quick Action: Clear agent's queue
+	function confirmClearQueue() {
+		showClearQueueModal = true;
+		closeQuickActions();
+	}
+
+	async function clearQueue() {
+		try {
+			const response = await fetch(`/api/agents/${agent.name}/clear-queue`, {
+				method: 'POST'
+			});
+
+			if (!response.ok) throw new Error('Failed to clear queue');
+
+			showClearQueueModal = false;
+			window.location.reload();
+		} catch (error) {
+			console.error('Failed to clear queue:', error);
+			alert(`Failed to clear queue: ${error.message}`);
+		}
+	}
+
+	// Quick Action: Unassign current task
+	function confirmUnassignTask() {
+		if (!currentTask()) {
+			alert('No current task to unassign');
+			closeQuickActions();
+			return;
+		}
+		showUnassignModal = true;
+		closeQuickActions();
+	}
+
+	async function unassignCurrentTask() {
+		const task = currentTask();
+		if (!task) return;
+
+		try {
+			const response = await fetch(`/api/agents/${agent.name}/unassign-task`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ taskId: task.id })
+			});
+
+			if (!response.ok) throw new Error('Failed to unassign task');
+
+			showUnassignModal = false;
+			window.location.reload();
+		} catch (error) {
+			console.error('Failed to unassign task:', error);
+			alert(`Failed to unassign task: ${error.message}`);
+		}
+	}
 </script>
 
 <div
@@ -273,6 +493,7 @@
 	ondrop={handleDrop}
 	ondragover={handleDragOver}
 	ondragleave={handleDragLeave}
+	oncontextmenu={handleContextMenu}
 >
 	<div class="card-body p-4">
 		<!-- Agent Header -->
@@ -288,10 +509,17 @@
 					Last active: {formatLastActivity(agent.last_active_ts)}
 				</p>
 			</div>
-			<span class="badge badge-sm {getStatusBadge(agentStatus())}">
-				{getStatusIcon(agentStatus())}
+			<button
+				class="badge badge-sm {getStatusBadge(agentStatus())} {agentStatus() === 'offline' ? 'cursor-pointer hover:badge-error hover:scale-110 transition-all' : 'cursor-default'}"
+				onclick={handleBadgeClick}
+				disabled={agentStatus() !== 'offline'}
+				title={agentStatus() === 'offline' ? 'Click to delete agent' : ''}
+			>
+				<span class={agentStatus() === 'working' ? 'inline-block animate-spin' : ''}>
+					{getStatusIcon(agentStatus())}
+				</span>
 				{agentStatus().charAt(0).toUpperCase() + agentStatus().slice(1)}
-			</span>
+			</button>
 		</div>
 
 		<!-- Current Task -->
@@ -423,3 +651,283 @@
 		</div>
 	</div>
 </div>
+
+<!-- Delete Agent Confirmation Modal -->
+{#if showDeleteModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg mb-4">Delete Agent?</h3>
+			<div class="space-y-3">
+				<p class="text-base-content/80">
+					Are you sure you want to delete <strong class="text-error">{agent.name}</strong>?
+				</p>
+				<div class="bg-base-200 rounded p-3 space-y-2 text-sm">
+					<p class="text-base-content/70">
+						<strong>Agent:</strong> {agent.name}
+					</p>
+					<p class="text-base-content/70">
+						<strong>Last active:</strong> {formatLastActivity(agent.last_active_ts)}
+					</p>
+					<p class="text-base-content/70">
+						<strong>Status:</strong> Offline (inactive for over 1 hour)
+					</p>
+				</div>
+				<div class="alert alert-warning">
+					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+					</svg>
+					<div class="text-xs">
+						<p class="font-semibold">This action cannot be undone.</p>
+						<p>Messages and task history will be preserved.</p>
+						<p>Active reservations will be released.</p>
+					</div>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button
+					class="btn btn-ghost"
+					onclick={() => { showDeleteModal = false; }}
+					disabled={isDeleting}
+				>
+					Cancel
+				</button>
+				<button
+					class="btn btn-error"
+					onclick={handleDeleteAgent}
+					disabled={isDeleting}
+				>
+					{#if isDeleting}
+						<span class="loading loading-spinner loading-sm"></span>
+						Deleting...
+					{:else}
+						Delete Agent
+					{/if}
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => { if (!isDeleting) showDeleteModal = false; }}></div>
+	</div>
+{/if}
+
+<!-- Quick Actions Context Menu -->
+{#if showQuickActions}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 z-50" onclick={closeQuickActions}>
+		<div
+			class="absolute bg-base-100 border border-base-300 rounded-lg shadow-xl py-2 min-w-[200px]"
+			style="left: {quickActionsX}px; top: {quickActionsY}px;"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<div class="px-3 py-2 text-xs font-semibold text-base-content/50 border-b border-base-300">
+				Quick Actions: {agent.name}
+			</div>
+
+			<button
+				class="w-full px-3 py-2 text-left text-sm hover:bg-base-200 transition-colors flex items-center gap-2"
+				onclick={viewInbox}
+				disabled={quickActionsLoading === 'inbox'}
+			>
+				{#if quickActionsLoading === 'inbox'}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					<span>📬</span>
+				{/if}
+				View Inbox
+			</button>
+
+			<button
+				class="w-full px-3 py-2 text-left text-sm hover:bg-base-200 transition-colors flex items-center gap-2"
+				onclick={viewReservations}
+				disabled={quickActionsLoading === 'reservations'}
+			>
+				{#if quickActionsLoading === 'reservations'}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					<span>🔒</span>
+				{/if}
+				View File Locks
+			</button>
+
+			<button
+				class="w-full px-3 py-2 text-left text-sm hover:bg-base-200 transition-colors flex items-center gap-2"
+				onclick={openSendMessage}
+			>
+				<span>✉️</span>
+				Send Message
+			</button>
+
+			<div class="border-t border-base-300 my-1"></div>
+
+			<button
+				class="w-full px-3 py-2 text-left text-sm hover:bg-error hover:text-error-content transition-colors flex items-center gap-2"
+				onclick={confirmClearQueue}
+			>
+				<span>🗑️</span>
+				Clear Agent's Queue
+			</button>
+
+			<button
+				class="w-full px-3 py-2 text-left text-sm hover:bg-warning hover:text-warning-content transition-colors flex items-center gap-2"
+				onclick={confirmUnassignTask}
+				disabled={!currentTask()}
+			>
+				<span>⏸️</span>
+				Unassign Current Task
+			</button>
+		</div>
+	</div>
+{/if}
+
+<!-- Inbox Modal -->
+{#if showInboxModal}
+	<div class="modal modal-open">
+		<div class="modal-box max-w-2xl">
+			<h3 class="font-bold text-lg mb-4">📬 Inbox: {agent.name}</h3>
+			{#if inboxMessages.length === 0}
+				<p class="text-base-content/50">No messages in inbox</p>
+			{:else}
+				<div class="space-y-2 max-h-96 overflow-y-auto">
+					{#each inboxMessages as message}
+						<div class="bg-base-200 p-3 rounded">
+							<div class="flex justify-between items-start mb-1">
+								<span class="font-semibold text-sm">{message.subject}</span>
+								<span class="text-xs text-base-content/50">{message.timestamp}</span>
+							</div>
+							<p class="text-xs text-base-content/70">From: {message.from}</p>
+							<p class="text-sm mt-2">{message.body}</p>
+						</div>
+					{/each}
+				</div>
+			{/if}
+			<div class="modal-action">
+				<button class="btn" onclick={() => { showInboxModal = false; }}>Close</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => { showInboxModal = false; }}></div>
+	</div>
+{/if}
+
+<!-- Reservations Modal -->
+{#if showReservationsModal}
+	<div class="modal modal-open">
+		<div class="modal-box max-w-2xl">
+			<h3 class="font-bold text-lg mb-4">🔒 File Locks: {agent.name}</h3>
+			{#if reservationsList.length === 0}
+				<p class="text-base-content/50">No active file locks</p>
+			{:else}
+				<div class="space-y-2 max-h-96 overflow-y-auto">
+					{#each reservationsList as lock}
+						<div class="bg-warning/10 p-3 rounded">
+							<div class="flex justify-between items-start mb-1">
+								<span class="font-mono text-sm font-semibold">{lock.pattern}</span>
+								<span class="badge badge-sm {lock.exclusive ? 'badge-error' : 'badge-warning'}">
+									{lock.exclusive ? 'Exclusive' : 'Shared'}
+								</span>
+							</div>
+							<p class="text-xs text-base-content/70">Reason: {lock.reason || 'N/A'}</p>
+							<p class="text-xs text-base-content/50">Expires: {lock.expires_ts}</p>
+						</div>
+					{/each}
+				</div>
+			{/if}
+			<div class="modal-action">
+				<button class="btn" onclick={() => { showReservationsModal = false; }}>Close</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => { showReservationsModal = false; }}></div>
+	</div>
+{/if}
+
+<!-- Send Message Modal -->
+{#if showSendMessageModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg mb-4">✉️ Send Message to {agent.name}</h3>
+			<div class="space-y-4">
+				<div class="form-control">
+					<label class="label">
+						<span class="label-text">Subject</span>
+					</label>
+					<input
+						type="text"
+						bind:value={messageSubject}
+						placeholder="Message subject"
+						class="input input-bordered"
+					/>
+				</div>
+				<div class="form-control">
+					<label class="label">
+						<span class="label-text">Message</span>
+					</label>
+					<textarea
+						bind:value={messageBody}
+						placeholder="Your message..."
+						class="textarea textarea-bordered h-32"
+					></textarea>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={() => { showSendMessageModal = false; }}>Cancel</button>
+				<button class="btn btn-primary" onclick={sendMessage}>Send</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => { showSendMessageModal = false; }}></div>
+	</div>
+{/if}
+
+<!-- Clear Queue Confirmation Modal -->
+{#if showClearQueueModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg mb-4">Clear Agent's Queue?</h3>
+			<div class="space-y-3">
+				<p class="text-base-content/80">
+					This will unassign all open tasks from <strong class="text-error">{agent.name}</strong>.
+				</p>
+				<div class="alert alert-warning">
+					<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+					</svg>
+					<span>This action cannot be undone. Tasks will return to the unassigned pool.</span>
+				</div>
+			</div>
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={() => { showClearQueueModal = false; }}>Cancel</button>
+				<button class="btn btn-error" onclick={clearQueue}>Clear Queue</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => { showClearQueueModal = false; }}></div>
+	</div>
+{/if}
+
+<!-- Unassign Task Confirmation Modal -->
+{#if showUnassignModal}
+	<div class="modal modal-open">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg mb-4">Unassign Current Task?</h3>
+			{#if currentTask()}
+				<div class="space-y-3">
+					<p class="text-base-content/80">
+						Unassign task <strong class="text-warning">{currentTask().id}</strong> from {agent.name}?
+					</p>
+					<div class="bg-base-200 rounded p-3">
+						<p class="text-sm font-semibold">{currentTask().title}</p>
+						<p class="text-xs text-base-content/50 mt-1">{currentTask().id}</p>
+					</div>
+					<div class="alert alert-info">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<span class="text-xs">Task will return to unassigned pool. Progress will be preserved.</span>
+					</div>
+				</div>
+			{/if}
+			<div class="modal-action">
+				<button class="btn btn-ghost" onclick={() => { showUnassignModal = false; }}>Cancel</button>
+				<button class="btn btn-warning" onclick={unassignCurrentTask}>Unassign Task</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => { showUnassignModal = false; }}></div>
+	</div>
+{/if}
