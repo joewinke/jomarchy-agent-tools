@@ -13,8 +13,12 @@
  */
 
 import { json } from '@sveltejs/kit';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { getAgents, getReservations } from '$lib/server/agent-mail.js';
 import { getTasks } from '../../../../../lib/beads.js';
+
+const execAsync = promisify(exec);
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ url }) {
@@ -133,5 +137,53 @@ export async function GET({ url }) {
 			tasks_with_deps: [],
 			timestamp: new Date().toISOString()
 		}, { status: 500 });
+	}
+}
+
+/**
+ * POST endpoint to assign tasks to agents
+ * Uses `bd` CLI to update task assignee
+ */
+export async function POST({ request }) {
+	try {
+		const { taskId, agentName } = await request.json();
+
+		if (!taskId || !agentName) {
+			return json({
+				error: 'Missing required fields',
+				message: 'taskId and agentName are required'
+			}, { status: 400 });
+		}
+
+		// Use bd CLI to assign task
+		// bd update <task-id> --assignee <agent-name>
+		const command = `bd update ${taskId} --assignee "${agentName}"`;
+
+		try {
+			const { stdout, stderr } = await execAsync(command);
+
+			return json({
+				success: true,
+				taskId,
+				agentName,
+				message: `Task ${taskId} assigned to ${agentName}`,
+				output: stdout,
+				timestamp: new Date().toISOString()
+			});
+		} catch (execError) {
+			console.error('bd CLI error:', execError);
+			return json({
+				error: 'Failed to assign task via bd CLI',
+				message: execError.message,
+				taskId,
+				agentName
+			}, { status: 500 });
+		}
+	} catch (error) {
+		console.error('Error in POST /api/orchestration:', error);
+		return json({
+			error: 'Invalid request',
+			message: error.message
+		}, { status: 400 });
 	}
 }

@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tools](https://img.shields.io/badge/Tools-28-blue)](#4-28-generic-bash-tools)
-[![Commands](https://img.shields.io/badge/Commands-10-purple)](#3-agent-swarm-coordination-commands)
+[![Commands](https://img.shields.io/badge/Commands-7-purple)](#3-agent-swarm-coordination-commands)
 [![Agent Mail](https://img.shields.io/badge/Agent%20Mail-Bash%2BSQLite-green)](#1-agent-mail)
 [![Beads](https://img.shields.io/badge/Beads-CLI-orange)](https://github.com/steveyegge/beads)
 
 **Manage multiple agents across several projects in a complete AI-assisted development environment in one command.**
 
-Agent Mail (multi-agent coordination) + Beads (task planning) + 28 bash tools + 10 coordination commands = Full swarm orchestration that transcends context windows and project boundaries.
+Agent Mail (multi-agent coordination) + Beads (task planning) + 28 bash tools + 7 coordination commands = Full swarm orchestration that transcends context windows and project boundaries.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/install.sh | bash
@@ -22,23 +22,23 @@ curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/
 # 1. Install (run in your terminal/bash)
 curl -fsSL https://raw.githubusercontent.com/joewinke/jomarchy-agent-tools/main/install.sh | bash
 
-# 2. Register your agent (run inside your AI coding assistant)
-/register
+# 2. Start working (registers agent + picks task)
+/agent:start
 
-# 3. Plan your feature (just talk to your agent!)
+# 3. Plan your feature (optional - if not already planned)
 # Option A - Conversational (recommended):
 #   "I want to build [feature]. It should [requirements]..."
-#   Agent asks questions, you discuss, then: /plan
+#   Agent asks questions, you discuss, then: /agent:plan
 #
 # Option B - Formal PRD:
-#   Paste written PRD, then: /plan
-/plan
+#   Paste written PRD, then: /agent:plan
+/agent:plan
 
-# 4. Start working on tasks
-/start
+# 4. Complete tasks
+/agent:complete
 ```
 
-**From idea to working code in 5 minutes!** The installer sets up Agent Mail, Beads CLI, 28 tools, and 10 coordination commands. Your AI assistant gains multi-agent swarm coordination capabilities instantly.
+**From idea to working code in 5 minutes!** The installer sets up Agent Mail, Beads CLI, 28 tools, and 7 coordination commands. Your AI assistant gains multi-agent swarm coordination capabilities instantly.
 
 ### How It Actually Works
 
@@ -55,7 +55,7 @@ See [Complete Workflow](#complete-workflow-from-idea-to-production) below for de
 
 Jomarchy Agent Tools is a **self-contained AI development environment** that gives your AI coding assistants (Claude Code, Cline, Codex, OpenCode, etc.) the ability to:
 
-- **Command** agent swarms with high-level coordination primitives (/start, /complete, /handoff)
+- **Command** agent swarms with high-level coordination primitives (/agent:start, /agent:complete, /agent:pause)
 - **Coordinate** across multiple agents without conflicts (Agent Mail messaging + file locks)
 - **Transcend** project folders and context window bounds with persistent state
 - **Plan** work with dependency-aware task management (Beads)
@@ -665,18 +665,15 @@ am-release "src/auth/**" --agent AgentName
 
 ### 3. Agent Swarm Coordination Commands
 
-**10 slash commands** installed to `~/.claude/commands/agent/` that enable sophisticated multi-agent orchestration:
+**7 slash commands** installed to `commands/agent/` that enable sophisticated multi-agent orchestration:
 
 ```
-~/.claude/commands/agent/
-├── register.md    - Bootstrap agent identity
-├── start.md       - Smart task start (context-aware, conflict-free)
+commands/agent/
+├── register.md    - Explicit agent selection with full review
+├── start.md       - Main command: register + task start + work
+├── pause.md       - Unified stop: pause/block/handoff/abandon
 ├── complete.md    - Finish + verify + auto-continue
-├── status.md      - Sync state without starting work
-├── handoff.md     - Transfer work with full context
-├── pause.md       - Temporarily stop, release resources
-├── block.md       - Mark blocked, coordinate with team
-├── stop.md        - Smart routing (pause/block/handoff)
+├── status.md      - Check current work status
 ├── verify.md      - Quality checks before completion
 └── plan.md        - Convert planning docs to Beads tasks
 ```
@@ -684,20 +681,17 @@ am-release "src/auth/**" --agent AgentName
 #### Command Categories
 
 **Core Workflow (3 commands):**
-- `/register` - Bootstrap session (agent identity + task review)
-- `/start` - Begin work (context-aware, conflict detection, auto-select)
-- `/complete` - Finish work (verify, commit, auto-continue to next)
+- `/agent:register` - Explicit registration with full agent review
+- `/agent:start` - Main command: handles registration, task selection, conflict detection, and work start
+- `/agent:complete` - Finish work (verify, commit, auto-continue to next)
 
-**Coordination (5 commands):**
-- `/status` - Check state, sync with team, update presence
-- `/handoff` - Transfer ownership with full context package
-- `/pause` - Temporarily stop without completing
-- `/block` - Mark blocked, notify team, release resources
-- `/stop` - Smart routing based on reason analysis
+**Coordination (2 commands):**
+- `/agent:pause` - Unified stop command with modes: pause, block, handoff, abandon
+- `/agent:status` - Check state, sync with team, update presence
 
 **Quality & Planning (2 commands):**
-- `/verify` - Pre-completion checks (tests, lint, browser, security)
-- `/plan` - Convert planning documents to structured Beads tasks
+- `/agent:verify` - Pre-completion checks (tests, lint, browser, security)
+- `/agent:plan` - Convert planning documents to structured Beads tasks
 
 #### How Commands Work
 

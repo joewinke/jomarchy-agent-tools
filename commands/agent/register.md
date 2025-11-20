@@ -21,10 +21,27 @@ Follow these steps in order:
    - If resuming: Run `am-register --name AgentName --program claude-code --model sonnet-4.5`
    - If creating new: Run `am-register --program claude-code --model sonnet-4.5` (auto-generates name)
 
-3.5. **CRITICAL:** Set environment variable for statusline:
-   - Run: `export AGENT_NAME=AgentName`
-   - This enables the statusline to display your agent identity, task progress, and indicators
-   - Without this, statusline will show "no agent registered"
+3.5. **CRITICAL:** Update session file for statusline (session-aware persistence):
+   ```bash
+   # Get session ID
+   SESSION_ID=$(cat .claude/current-session-id.txt 2>/dev/null | tr -d '\n')
+
+   # Write to session file (PRIMARY - statusline reads this)
+   if [[ -n "$SESSION_ID" ]]; then
+     mkdir -p .claude
+     echo "$AGENT_NAME" > ".claude/agent-${SESSION_ID}.txt"
+     echo "✓ Session file updated: .claude/agent-${SESSION_ID}.txt"
+   fi
+
+   # Export env var (FALLBACK - for bash scripts)
+   export AGENT_NAME="$AGENT_NAME"
+   ```
+
+   **Why session files matter:**
+   - Each Claude Code session has a unique `session_id`
+   - Statusline reads from `.claude/agent-{session_id}.txt` (PRIMARY)
+   - `export AGENT_NAME` doesn't work (statusline is separate process)
+   - This enables multiple concurrent agents in different terminals
 
 4. Review inbox and acknowledge messages:
    - Run: `am-inbox AgentName --unread`

@@ -32,6 +32,34 @@
 		}
 	}
 
+	// Handle task assignment via drag-and-drop
+	async function handleTaskAssign(taskId, agentName) {
+		try {
+			const response = await fetch('/api/orchestration', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ taskId, agentName })
+			});
+
+			const result = await response.json();
+
+			if (!response.ok || result.error) {
+				console.error('Failed to assign task:', result.error || result.message);
+				throw new Error(result.message || 'Failed to assign task');
+			}
+
+			// Immediately refresh data to show updated assignment
+			await fetchData();
+
+			console.log(`Task ${taskId} successfully assigned to ${agentName}`);
+		} catch (error) {
+			console.error('Error assigning task:', error);
+			throw error;
+		}
+	}
+
 	// Auto-refresh data every 5 seconds using Svelte reactivity
 	$effect(() => {
 		const interval = setInterval(fetchData, 5000);
@@ -105,7 +133,7 @@
 
 		<!-- Right Panel: Agent Grid -->
 		<div class="flex-1 overflow-auto">
-			<AgentGrid {agents} {tasks} {reservations} />
+			<AgentGrid {agents} {tasks} {reservations} onTaskAssign={handleTaskAssign} />
 		</div>
 	</div>
 </div>

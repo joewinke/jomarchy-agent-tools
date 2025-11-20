@@ -13,3 +13,4 @@ node_modules/
 
 # Agent Mail installation directory (downloaded during install)
 mcp_agent_mail/
+.claude/agent-*.txt

@@ -1,7 +1,7 @@
 <script>
 	import AgentCard from './AgentCard.svelte';
 
-	let { agents = [], tasks = [], reservations = [] } = $props();
+	let { agents = [], tasks = [], reservations = [], onTaskAssign = () => {} } = $props();
 
 	// Auto-assign button action (placeholder)
 	function handleAutoAssign() {
@@ -122,7 +122,7 @@
 			<!-- Responsive Grid -->
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 				{#each agents as agent (agent.id || agent.name)}
-					<AgentCard {agent} {tasks} {reservations} />
+					<AgentCard {agent} {tasks} {reservations} {onTaskAssign} />
 				{/each}
 			</div>
 		{/if}

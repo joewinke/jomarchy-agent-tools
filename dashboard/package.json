@@ -14,6 +14,7 @@
 	"dependencies": {
 		"better-sqlite3": "^11.8.1",
 		"d3": "^7.9.0",
+		"svelte-dnd-action": "^0.9.67",
 		"theme-change": "^2.5.0"
 	},
 	"devDependencies": {

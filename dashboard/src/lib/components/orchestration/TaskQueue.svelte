@@ -1,10 +1,13 @@
 <script>
+	import { dndzone } from 'svelte-dnd-action';
+
 	let { tasks = [], agents = [], reservations = [] } = $props();
 
 	let searchQuery = $state('');
 	let priorityFilter = $state('all');
 	let statusFilter = $state('all');
 	let labelFilter = $state('all');
+	let dragDisabled = $state(true);
 
 	// Compute filtered tasks using $derived
 	const filteredTasks = $derived(() => {
@@ -59,6 +62,22 @@
 			default:
 				return 'badge-ghost'; // P3+ - Gray
 		}
+	}
+
+	// Handle drag start - enable dragging
+	function handleDragStart(event) {
+		dragDisabled = false;
+		// Store task data for drop handling
+		const taskId = event.target.closest('[data-task-id]')?.dataset.taskId;
+		if (taskId) {
+			event.dataTransfer.setData('text/plain', taskId);
+			event.dataTransfer.effectAllowed = 'move';
+		}
+	}
+
+	// Handle drag end - disable dragging
+	function handleDragEnd() {
+		dragDisabled = true;
 	}
 </script>
 
@@ -150,8 +169,11 @@
 		{:else}
 			{#each filteredTasks() as task (task.id)}
 				<div
-					class="card bg-base-100 border border-base-300 hover:border-primary cursor-move transition-all"
+					class="card bg-base-100 border border-base-300 hover:border-primary cursor-move transition-all {!dragDisabled ? 'opacity-50' : ''}"
 					draggable="true"
+					data-task-id={task.id}
+					ondragstart={handleDragStart}
+					ondragend={handleDragEnd}
 				>
 					<div class="card-body p-3">
 						<!-- Task Header -->

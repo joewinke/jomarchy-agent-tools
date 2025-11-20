@@ -7,6 +7,7 @@ Lightweight bash tools for agent orchestration, database operations, monitoring,
 ```
 jomarchy-agent-tools/
 ├── agent-mail/          # Agent Mail coordination system (11 tools)
+├── commands/agent/      # Agent workflow commands (7 commands)
 ├── database/            # Database tools (3 tools)
 ├── monitoring/          # Monitoring tools (5 tools)
 ├── development/         # Development tools (7 tools)
@@ -26,6 +27,9 @@ jomarchy-agent-tools/
 am-whoami
 db-schema
 browser-start.js --help
+
+# Start working (registers agent + picks task)
+/agent:start
 ```
 
 ## Session-Aware Statusline
@@ -44,12 +48,12 @@ Session 3: StrongShore | [P0] task-xyz - Critical bug fix [🔒1]
 
 ### Registration
 
-When you run `/agent:register`, it automatically:
+When you run `/agent:start` or `/agent:register`, it automatically:
 1. Registers your agent in Agent Mail
 2. Writes agent name to `.claude/agent-{session_id}.txt`
 3. Statusline reads from that file and displays your identity
 
-**No manual setup needed** - just register and the statusline updates!
+**No manual setup needed** - just run a command and the statusline updates!
 
 ### What the Statusline Shows
 
@@ -74,15 +78,15 @@ jomarchy-agent-tools | no agent registered
 
 ```bash
 # Terminal 1
-/agent:register  # Choose FreeMarsh
+/agent:start  # Choose FreeMarsh
 # Statusline shows: FreeMarsh | ...
 
 # Terminal 2
-/agent:register  # Choose PaleStar
+/agent:start  # Choose PaleStar
 # Statusline shows: PaleStar | ...
 
 # Terminal 3
-/agent:register  # Choose StrongShore
+/agent:start  # Choose StrongShore
 # Statusline shows: StrongShore | ...
 ```
 
@@ -91,7 +95,7 @@ All three sessions work independently with their own agent identities.
 ### Files Created
 
 - `.claude/agent-{session_id}.txt` - Your agent name for this session
-- `.claude/current-session-id}.txt` - Latest session ID (for slash commands)
+- `.claude/current-session-id.txt` - Latest session ID (written by statusline)
 - `.claude/statusline.sh` - The statusline script
 
 **These files are session-specific** - don't commit `agent-*.txt` files to git (they're per-developer session).
@@ -144,161 +148,254 @@ ls -la .claude/agent-*.txt
 session_id=$(cat .claude/current-session-id.txt | tr -d '\n') && cat ".claude/agent-${session_id}.txt"
 ```
 
-## Command Reference
+## Agent Workflow Commands
 
-**Quick start commands for agent registration and task management.**
+**All agent commands are in `./commands/agent/` and available via `/agent:*` namespace.**
 
-### `/start` - Get to Work Command
+### Command Overview
 
-**The "just get me working" command** - seamlessly handles registration and task start.
+| Command | Purpose | Size |
+|---------|---------|------|
+| `/agent:start` | **Main command** - register + task start | 16K |
+| `/agent:register` | Explicit registration with full review | 11K |
+| `/agent:pause` | **Unified stop** - pause/block/handoff/abandon | 12K |
+| `/agent:complete` | Finish task, release files, close | 27K |
+| `/agent:status` | Check current work status | 21K |
+| `/agent:plan` | Plan work strategy | 27K |
+| `/agent:verify` | Verify task completion | 29K |
+
+### `/agent:start` - Get to Work Command
+
+**The main command** - handles registration, task selection, conflict detection, and actually starts work.
 
 **Usage:**
 ```bash
-/start              # Auto-detect recent agent OR auto-create new agent
-/start agent        # Force show agent selection menu
-/start task-abc     # Start specific task (auto-registers if needed)
+/agent:start                    # Auto-detect/create agent, show tasks
+/agent:start AgentName          # Register as specific agent
+/agent:start task-abc           # Start specific task (full flow)
+/agent:start task-abc quick     # Skip conflict checks (fast)
 ```
+
+**What it does:**
+1. **Smart Registration:** Auto-detects recent agents (last 60 min) or creates new
+2. **Session Persistence:** Updates `.claude/agent-{session_id}.txt` for statusline
+3. **Task Selection:** From parameter, conversation context, or priority
+4. **Conflict Detection:** File locks, git changes, dependencies
+5. **Actually Starts Work:** Reserves files, sends Agent Mail, updates Beads
 
 **How it works:**
 
-1. **Auto-Detection (Default):**
-   - Checks if you're already registered (session file exists)
-   - If not: looks for agents active in last **1 hour**
-   - Recent agents found → shows menu to resume
-   - No recent agents → auto-creates new agent with random name
-   - Sets statusline automatically
+**1. Auto-Detection (Default):**
+- Checks if you're already registered (session file exists)
+- If not: looks for agents active in last **60 minutes**
+- Recent agents found → shows menu to resume
+- No recent agents → auto-creates new agent with random name
+- Sets statusline automatically
 
-2. **Force Menu:**
-   ```bash
-   /start agent
-   ```
-   - Always shows interactive agent selection menu
-   - Even if you're already registered
-   - Useful for switching agents mid-session
+**2. Explicit Agent:**
+```bash
+/agent:start MyAgent
+```
+- Register as specific agent
+- Show task recommendations
+- Useful when you know which agent you want
 
-3. **Start Specific Task:**
-   ```bash
-   /start jomarchy-agent-tools-abc
-   ```
-   - Auto-registers if needed (using 1-hour detection)
-   - Then starts the specified task immediately
-   - Runs full conflict checks before starting work
+**3. Start Specific Task:**
+```bash
+/agent:start jomarchy-agent-tools-abc
+```
+- Auto-registers if needed (using 60-min detection)
+- Runs full conflict checks
+- Reserves files
+- Sends Agent Mail notification
+- Updates Beads status
+- **Actually starts work** (not just recommendations)
 
-**1-Hour Detection Window:**
-- Agents active in last 60 minutes are considered "recent"
-- Balances between convenience (resume recent work) and freshness (don't show stale agents)
-- Adjustable via helper script: `scripts/get-recent-agents`
+**4. Quick Mode:**
+```bash
+/agent:start task-abc quick
+```
+- Skips conflict detection
+- Skips dependency checks
+- For when you're solo or need speed
 
 **Examples:**
 ```bash
 # Scenario 1: Fresh session, you worked 30 min ago
-/start
+/agent:start
 # → Shows menu: "Resume FreeMarsh (last active 30 min ago)"
 
 # Scenario 2: Fresh session, no recent work
-/start
+/agent:start
 # → Auto-creates: "✨ Created new agent: BrightCove"
 
-# Scenario 3: Already registered, want different task
-/start jomarchy-agent-tools-zdl
-# → Skips registration, starts task immediately
+# Scenario 3: Already registered, start specific task
+/agent:start jomarchy-agent-tools-zdl
+# → Checks conflicts, reserves files, starts task
+
+# Scenario 4: Fast mode
+/agent:start jomarchy-agent-tools-zdl quick
+# → Skips checks, starts immediately
 ```
 
-### `/r` - Agent Resume Menu
+### `/agent:register` - Explicit Registration
 
-**Explicit agent selection** - always shows interactive menu.
+**Show all agents and choose** - for when you want full visibility.
 
 **Usage:**
 ```bash
-/r              # Show all registered agents, choose one
+/agent:register     # Interactive menu with all agents
 ```
 
 **Purpose:**
-- `/r` is for **"I want to see all agents and choose"**
-- `/start` is for **"just get me working"**
+- See **ALL** registered agents (no time filter)
+- Full review: inbox, tasks, categorization
+- Explicit choice (no auto-creation without confirmation)
 
-**Behavior:**
-- Lists ALL registered agents (sorted by last_active)
-- Shows details: task, reservations, last active time
-- User selects from menu (no auto-creation)
-- For resuming existing agents only
+**When to use:**
+- Want to see all agents (not just recent)
+- Need full registration review
+- Setting up multi-agent coordination
 
-**Example:**
-```bash
-/r
-# Shows:
-# ┌─ AGENTS ─────────────────────────────────────┐
-# │ 1. FreeMarsh (30 min ago) - Working on vgt  │
-# │ 2. PaleStar (2 hours ago) - idle            │
-# │ 3. StrongShore (5 hours ago) - Working on... │
-# └──────────────────────────────────────────────┘
-# Select agent: [1/2/3]
-```
+**vs `/agent:start`:**
 
-### `/agent:register` - Full Registration Flow
+| Feature | `/agent:start` | `/agent:register` |
+|---------|----------------|-------------------|
+| Registration | Auto-detect (60 min) | Show all agents |
+| Task start | Yes (if task ID provided) | No (review only) |
+| Auto-create | Yes (if no recent agents) | Yes (with confirmation) |
+| Review depth | Quick summary | Full analysis |
+| Use case | "Get me working" | "Show me everything" |
 
-**Comprehensive agent setup** - for advanced scenarios.
+### `/agent:pause` - Stop Work (Unified)
+
+**Stop working on a task** - one command for all stop scenarios.
 
 **Usage:**
 ```bash
-/agent:register     # Interactive registration with full options
+# Simple pause (keep file locks)
+/agent:pause task-abc --reason "Taking break"
+
+# Mark as blocked (release locks)
+/agent:pause task-abc --blocked --reason "API is down"
+
+# Hand off to another agent (release locks)
+/agent:pause task-abc --handoff Alice --reason "Need frontend expertise"
+
+# Abandon work (release locks, unassign)
+/agent:pause task-abc --abandon --reason "Requirements changed"
 ```
 
-**When to use:**
-- Need to see full agent list (including old agents)
-- Want explicit control over registration
-- Setting up multi-agent coordination
+**Modes:**
 
-**vs `/start` and `/r`:**
+| Mode | File Locks | Task Status | Assignee | Use When |
+|------|------------|-------------|----------|----------|
+| Default (pause) | Kept | Unchanged | Unchanged | Taking break, will resume |
+| `--blocked` | Released | → blocked | Unchanged | External blocker, can't proceed |
+| `--handoff` | Released | Unchanged | → New agent | Need different expertise |
+| `--abandon` | Released | → open | Cleared | Task obsolete or rethinking needed |
 
-| Command | Use Case | Auto-Create | Recent Filter |
-|---------|----------|-------------|---------------|
-| `/start` | "Get me working fast" | ✅ Yes (if no recent agents) | 1 hour |
-| `/r` | "Show all agents, I'll choose" | ❌ No | None |
-| `/agent:register` | "Full setup" | ✅ Yes (with confirmation) | None |
+**What it does:**
+1. Releases file reservations (based on mode)
+2. Updates task status in Beads
+3. Sends Agent Mail notification
+4. Updates session state
+
+**Examples:**
+```bash
+# End of day
+/agent:pause task-abc --reason "End of day, will resume tomorrow"
+
+# Blocked by dependency
+/agent:pause task-abc --blocked --reason "Waiting for API documentation from backend team"
+
+# Need help
+/agent:pause task-abc --handoff SeniorDev --reason "Complex algorithm, need expert review"
+
+# Task no longer needed
+/agent:pause task-abc --abandon --reason "Product decided to go different direction"
+```
+
+### `/agent:complete` - Finish Task
+
+**Complete task** - closes in Beads, releases files, sends notifications.
+
+**Usage:**
+```bash
+/agent:complete task-abc        # Normal completion
+```
+
+**What it does:**
+1. Releases all file reservations
+2. Marks task as completed in Beads
+3. Sends completion notification in Agent Mail
+4. Updates agent status
+
+### Other Agent Commands
+
+**`/agent:status`** - Check what you're working on
+```bash
+/agent:status    # Shows current task, locks, messages
+```
+
+**`/agent:plan`** - Plan work strategy
+```bash
+/agent:plan     # Strategic planning for complex work
+```
+
+**`/agent:verify`** - Verify task completion
+```bash
+/agent:verify task-abc    # Verify all acceptance criteria met
+```
 
 ### Command Workflow Recommendations
 
 **Most Common Workflow:**
 ```bash
 # 1. Start your session
-/start
+/agent:start
 
 # 2. Work on tasks
 # (statusline shows your agent identity)
 
 # 3. Switch tasks
-/start task-xyz
+/agent:start task-xyz
 
-# 4. End session
-# (agent identity preserved for next session)
+# 4. Pause if needed
+/agent:pause task-xyz --reason "Switching to urgent work"
+
+# 5. Complete task
+/agent:complete task-xyz
 ```
 
 **Multi-Agent Coordination:**
 ```bash
 # Terminal 1 (Frontend work)
-/start              # Resume FreeMarsh
-# Work on UI tasks...
+/agent:start              # Resume FreeMarsh
+/agent:start task-ui-123  # Start UI task
 
 # Terminal 2 (Backend work)
-/r                  # Choose different agent (PaleStar)
-# Work on API tasks...
+/agent:start PaleStar     # Use specific agent
+/agent:start task-api-456 # Start API task
 
 # Terminal 3 (Testing)
-/start agent        # Choose StrongShore
-# Run tests...
+/agent:register           # See all agents, choose one
+/agent:start task-test-789
 ```
 
 **Troubleshooting:**
 ```bash
 # Statusline shows "no agent registered"?
-/start              # Quick fix
+/agent:start              # Quick fix
 
 # Want to see all agents (not just recent)?
-/r                  # Full agent list
+/agent:register           # Full agent list
 
-# Need to create new agent explicitly?
-/agent:register     # Interactive setup
+# Need to hand off work?
+/agent:pause task-abc --handoff OtherAgent --reason "Need expert"
+
+# Task blocked by dependency?
+/agent:pause task-abc --blocked --reason "Waiting for X"
 ```
 
 ## Dashboard Development
@@ -376,15 +473,15 @@ For multi-agent coordination. See `~/.claude/CLAUDE.md` for full Agent Mail docu
 
 **Quick Reference:**
 ```bash
-# Register agent (required for each session)
-# Use /agent:register slash command - automatically updates statusline!
+# Register agent
+# RECOMMENDED: Use /agent:start or /agent:register (automatically updates statusline!)
 # Or manually: am-register --name AgentName --program claude-code --model sonnet-4.5
 
 # Reserve files
-am-reserve "src/**/*.ts" --agent AgentName --ttl 3600 --exclusive --reason "bd-123"
+am-reserve "src/**/*.ts" --agent AgentName --ttl 3600 --exclusive --reason "task-abc"
 
 # Send message
-am-send "Subject" "Body" --from Agent1 --to Agent2 --thread bd-123
+am-send "Subject" "Body" --from Agent1 --to Agent2 --thread task-abc
 
 # Check inbox
 am-inbox AgentName --unread
@@ -484,18 +581,17 @@ type-check-fast --help
 
 ## Integration with Beads
 
-Use Beads issue IDs (e.g., `bd-123`) as:
+Use Beads issue IDs (e.g., `task-abc`) as:
 - Agent Mail `thread_id`
 - File reservation `reason`
 - Commit message references
 
 ```bash
 # Example workflow
-bd ready --json                                    # Pick work
-am-reserve "src/**/*.ts" --agent Me --reason "bd-123"  # Reserve files
+bd ready --json                                         # Pick work
+/agent:start task-abc                                   # Registers + starts task
 # ... do work ...
-bd close bd-123 --reason "Completed"               # Mark done
-am-release "src/**/*.ts" --agent Me                # Release files
+/agent:complete task-abc                                # Closes task
 ```
 
 ## Common Issues
@@ -506,6 +602,8 @@ am-release "src/**/*.ts" --agent Me                # Release files
 
 ### Agent Mail "not registered"
 ```bash
+/agent:start              # Quick fix (auto-registers)
+# Or manually:
 am-register --name YourAgentName --program claude-code --model sonnet-4.5
 ```
 
@@ -522,9 +620,16 @@ rm -rf .svelte-kit node_modules/.vite
 npm run dev
 ```
 
+### Statusline not updating
+```bash
+# Write to your session file
+session_id=$(cat .claude/current-session-id.txt | tr -d '\n') && echo "YourAgentName" > ".claude/agent-${session_id}.txt"
+```
+
 ## References
 
 - **Dashboard docs**: `dashboard/CLAUDE.md`
 - **Global Agent Mail docs**: `~/.claude/CLAUDE.md`
+- **Agent commands**: `./commands/agent/*.md`
 - **Tool source**: Each tool directory contains implementation
 - **Installation**: `install.sh` for symlink setup
