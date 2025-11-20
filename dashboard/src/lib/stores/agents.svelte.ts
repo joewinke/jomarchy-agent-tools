@@ -1,17 +1,17 @@
 /**
- * Agent Orchestration Store
+ * Agents Store
  *
- * Reactive Svelte 5 store that polls the /api/orchestration endpoint
+ * Reactive Svelte 5 store that polls the /api/agents endpoint
  * for real-time agent coordination data.
  *
  * Usage:
  * ```svelte
  * <script lang="ts">
- *   import { orchestration } from '$lib/stores/orchestration.svelte';
+ *   import { agents } from '$lib/stores/agents.svelte';
  *
  *   // Access reactive state
- *   const agents = $derived(orchestration.agents);
- *   const tasks = $derived(orchestration.tasks);
+ *   const agentList = $derived(agents.agents);
+ *   const tasks = $derived(agents.tasks);
  * </script>
  * ```
  */
@@ -70,7 +70,7 @@ export interface Task {
 	blocked_by?: Array<{ id: string; title: string; status: string }>;
 }
 
-export interface OrchestrationData {
+export interface AgentsData {
 	agents: Agent[];
 	reservations: Reservation[];
 	reservations_by_agent: Record<string, Reservation[]>;
@@ -100,8 +100,8 @@ export interface OrchestrationData {
 	};
 }
 
-class OrchestrationStore {
-	data = $state<OrchestrationData>({
+class AgentsStore {
+	data = $state<AgentsData>({
 		agents: [],
 		reservations: [],
 		reservations_by_agent: {},
@@ -228,7 +228,7 @@ class OrchestrationStore {
 			if (options?.project) params.set('project', options.project);
 			if (options?.agent) params.set('agent', options.agent);
 
-			const url = `/api/orchestration${params.toString() ? `?${params}` : ''}`;
+			const url = `/api/agents?full=true${params.toString() ? `&${params}` : ''}`;
 			const response = await fetch(url);
 
 			if (!response.ok) {
@@ -244,7 +244,7 @@ class OrchestrationStore {
 			}
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : 'Unknown error occurred';
-			console.error('Failed to fetch orchestration data:', err);
+			console.error('Failed to fetch agent data:', err);
 		} finally {
 			this.loading = false;
 		}
@@ -264,7 +264,7 @@ class OrchestrationStore {
 			this.fetch(options);
 		}, pollInterval);
 
-		console.log(`Started polling orchestration data every ${pollInterval}ms`);
+		console.log(`Started polling agent data every ${pollInterval}ms`);
 	}
 
 	/**
@@ -274,7 +274,7 @@ class OrchestrationStore {
 		if (this.pollInterval) {
 			clearInterval(this.pollInterval);
 			this.pollInterval = null;
-			console.log('Stopped polling orchestration data');
+			console.log('Stopped polling agent data');
 		}
 	}
 
@@ -287,4 +287,4 @@ class OrchestrationStore {
 }
 
 // Export singleton instance
-export const orchestration = new OrchestrationStore();
+export const agents = new AgentsStore();
