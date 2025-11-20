@@ -317,7 +317,7 @@ Pitfalls to avoid
 
 Philosophy: Following [What if you don't need MCP?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) by Mario Zechner - simple bash tools achieve 80x token reduction.
 
-**Location:** `~/code/jomarchy/tools/`
+**Location:** `~/code/jat/`
 
 ### Tool Categories
 
