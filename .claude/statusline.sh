@@ -121,7 +121,8 @@ if [[ -n "$cwd" ]] && [[ -d "$cwd/.git" ]]; then
     branch=$(git branch --show-current 2>/dev/null || echo "")
     if [[ -n "$branch" ]]; then
         folder_name=$(basename "$cwd")
-        git_branch="/${folder_name}/${branch}"
+        # Format: folder@branch with branch in cyan
+        git_branch="${folder_name}@${CYAN}${branch}${RESET}"
     fi
 fi
 
@@ -337,51 +338,41 @@ if [[ -n "$task_id" ]]; then
         status_line="${status_line} ${GRAY}-${RESET} ${YELLOW}${task_title}${RESET}"
     fi
 
-    # Build indicators section
-    indicators=""
-
-    # Add lock count
-    if [[ $lock_count -gt 0 ]]; then
-        indicators="${indicators}🔒${lock_count}"
-    fi
-
-    # Add unread messages
-    if [[ $unread_count -gt 0 ]]; then
-        [[ -n "$indicators" ]] && indicators="${indicators} "
-        indicators="${indicators}📬${unread_count}"
-    fi
-
-    # Add time remaining
-    if [[ -n "$time_remaining" ]]; then
-        [[ -n "$indicators" ]] && indicators="${indicators} "
-        indicators="${indicators}⏱${time_remaining}"
-    fi
-
-    # Add progress if available
-    if [[ -n "$task_progress" ]] && [[ "$task_progress" != "null" ]]; then
-        [[ -n "$indicators" ]] && indicators="${indicators} "
-        indicators="${indicators}${task_progress}%"
-    fi
-
-    # Append indicators if any
-    if [[ -n "$indicators" ]]; then
-        status_line="${status_line} ${GRAY}[${RESET}${indicators}${GRAY}]${RESET}"
-    fi
-
 elif [[ -n "$agent_name" ]]; then
-    # Agent registered but no active task - show idle with basic indicators
+    # Agent registered but no active task - show idle
     status_line="${status_line} ${GRAY}|${RESET} ${CYAN}idle${RESET}"
-
-    # Show unread messages even when idle
-    if [[ $unread_count -gt 0 ]]; then
-        status_line="${status_line} ${GRAY}[${RESET}📬${unread_count}${GRAY}]${RESET}"
-    fi
 else
     # Fallback
     status_line="${GRAY}jat${RESET}"
 fi
 
-# Build second line with context battery, git branch, and last prompt
+# Build indicators section (for line 2)
+indicators=""
+
+# Add lock count
+if [[ $lock_count -gt 0 ]]; then
+    indicators="${indicators}🔒${lock_count}"
+fi
+
+# Add unread messages
+if [[ $unread_count -gt 0 ]]; then
+    [[ -n "$indicators" ]] && indicators="${indicators} "
+    indicators="${indicators}📬${unread_count}"
+fi
+
+# Add time remaining
+if [[ -n "$time_remaining" ]]; then
+    [[ -n "$indicators" ]] && indicators="${indicators} "
+    indicators="${indicators}⏱${time_remaining}"
+fi
+
+# Add progress if available
+if [[ -n "$task_progress" ]] && [[ "$task_progress" != "null" ]]; then
+    [[ -n "$indicators" ]] && indicators="${indicators} "
+    indicators="${indicators}${task_progress}%"
+fi
+
+# Build second line with context battery, git branch, and indicators
 second_line=""
 
 # Add context remaining with battery bar FIRST
@@ -405,14 +396,22 @@ if [[ -n "$git_branch" ]]; then
     second_line="${second_line}${MAGENTA}⎇${RESET} ${git_branch}"
 fi
 
-# Add last user prompt
-if [[ -n "$last_prompt" ]]; then
+# Add indicators
+if [[ -n "$indicators" ]]; then
     [[ -n "$second_line" ]] && second_line="${second_line} ${GRAY}|${RESET} "
-    second_line="${second_line}${YELLOW}💬${RESET} ${last_prompt}"
+    second_line="${second_line}${GRAY}[${RESET}${indicators}${GRAY}]${RESET}"
+fi
+
+# Build third line with last user prompt
+third_line=""
+if [[ -n "$last_prompt" ]]; then
+    third_line="${YELLOW}💬${RESET} ${last_prompt}"
 fi
 
 # Output status line(s)
-if [[ -n "$second_line" ]]; then
+if [[ -n "$third_line" ]]; then
+    echo -e "${status_line}\n${second_line}\n${third_line}"
+elif [[ -n "$second_line" ]]; then
     echo -e "${status_line}\n${second_line}"
 else
     echo -e "$status_line"
