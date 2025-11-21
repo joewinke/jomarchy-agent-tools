@@ -3,7 +3,19 @@
 	 * Sparkline Component
 	 *
 	 * Lightweight SVG-based sparkline for token usage visualization.
-	 * Color-coded based on usage thresholds, with hover tooltips.
+	 * Features hover-to-expand controls for chart type, time range, and display options.
+	 * Color-coded based on usage thresholds with configurable defaults.
+	 *
+	 * @example
+	 * ```svelte
+	 * <Sparkline
+	 *   data={sparklineData}
+	 *   height={40}
+	 *   defaultTimeRange="24h"
+	 *   defaultColorMode="usage"
+	 *   showStyleToolbar={true}
+	 * />
+	 * ```
 	 */
 
 	import { formatTokens, formatCost, getUsageColor } from '$lib/utils/numberFormat.js';
@@ -34,8 +46,12 @@
 		colorMode?: 'usage' | 'static';
 		/** Static color when colorMode='static' */
 		staticColor?: string;
-		/** Show style toolbar (default: true) */
+		/** Show style toolbar (default: true) - DEPRECATED: use showStyleToolbar for backward compatibility */
 		showStyleToolbar?: boolean;
+		/** Default time range for initial display (default: '24h') */
+		defaultTimeRange?: '1h' | '24h' | '7d' | '30d' | 'all';
+		/** Default color mode for initial display (default: 'usage') */
+		defaultColorMode?: 'usage' | 'static';
 	}
 
 	let {
@@ -46,7 +62,9 @@
 		showGrid = false,
 		colorMode = 'usage',
 		staticColor = 'oklch(var(--p))',
-		showStyleToolbar = true
+		showStyleToolbar = true,
+		defaultTimeRange = '24h',
+		defaultColorMode = 'usage'
 	}: Props = $props();
 
 	// ============================================================================
@@ -56,7 +74,7 @@
 	type ChartType = 'line' | 'bars' | 'area' | 'dots';
 	type TimeRange = '1h' | '24h' | '7d' | '30d' | 'all' | 'custom';
 	let chartType = $state<ChartType>('line');
-	let timeRange = $state<TimeRange>('24h');
+	let timeRange = $state<TimeRange>(defaultTimeRange); // Initialize from prop
 	let hoveredIndex = $state<number | null>(null);
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
@@ -69,7 +87,7 @@
 	// Options toggles
 	let internalShowGrid = $state(false); // Internal grid toggle state (starts off, user can toggle)
 	let smoothCurves = $state(true); // Enable bezier curve smoothing
-	let internalColorMode = $state<'usage' | 'static'>(colorMode); // Internal color mode state
+	let internalColorMode = $state<'usage' | 'static'>(defaultColorMode); // Initialize from prop
 
 	// ============================================================================
 	// Computed Values
