@@ -517,7 +517,7 @@ fi
 
 # Add git branch
 if [[ -n "$git_branch" ]]; then
-    [[ -n "$second_line" ]] && second_line="${second_line} ${GRAY}|${RESET} "
+    [[ -n "$second_line" ]] && second_line="${second_line}  "
     second_line="${second_line}${MAGENTA}⎇${RESET} ${git_branch}"
 fi
 
