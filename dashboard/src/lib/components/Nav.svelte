@@ -19,6 +19,7 @@
 	 */
 
 	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
 	import { onMount, onDestroy } from 'svelte';
 	import { unifiedNavConfig } from '$lib/config/navConfig';
 	import ThemeSelector from './ThemeSelector.svelte';
@@ -71,8 +72,15 @@
 		showHelpModal = !showHelpModal;
 	}
 
-	// Keyboard shortcut handler for Ctrl+/
+	// Keyboard shortcut handler for Ctrl+/ and Escape
 	function handleKeyDown(event: KeyboardEvent) {
+		// Escape to close help modal if it's open
+		if (event.key === 'Escape' && showHelpModal) {
+			event.preventDefault();
+			showHelpModal = false;
+			return;
+		}
+
 		// Ctrl+/ or Cmd+/ to toggle help
 		if ((event.ctrlKey || event.metaKey) && event.key === '/') {
 			event.preventDefault();
@@ -82,12 +90,16 @@
 
 	// Setup keyboard listener
 	onMount(() => {
-		window.addEventListener('keydown', handleKeyDown);
+		if (browser) {
+			window.addEventListener('keydown', handleKeyDown);
+		}
 	});
 
 	// Cleanup on destroy
 	onDestroy(() => {
-		window.removeEventListener('keydown', handleKeyDown);
+		if (browser) {
+			window.removeEventListener('keydown', handleKeyDown);
+		}
 	});
 </script>
 

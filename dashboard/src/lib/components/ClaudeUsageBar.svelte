@@ -70,9 +70,30 @@
 
 		console.log('ClaudeUsageBar: Generating sparkline with currentTokens:', currentTokens);
 
-		// If no tokens yet, skip generation (will show empty)
+		// If no tokens yet, use demo data to show what sparkline looks like
 		if (currentTokens === 0) {
-			sparklineData = [];
+			// Generate demo data with 50K tokens total for visualization
+			const demoTokens = 50000;
+			for (let i = 23; i >= 0; i--) {
+				const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
+
+				// Create varied demo curve with realistic spikes
+				const progress = (24 - i) / 24;
+				const exponentialGrowth = Math.pow(progress, 1.5); // Exponential curve
+				const spike = Math.sin(progress * Math.PI * 3) * 0.3; // Add some spikes
+				const variation = 1 + (Math.random() - 0.5) * 0.6; // ±30% variation
+
+				const tokens = Math.max(0, Math.floor(demoTokens * exponentialGrowth * (1 + spike) * variation));
+				const cost = (tokens / 1_000_000) * 3;
+
+				data.push({
+					timestamp: timestamp.toISOString(),
+					tokens,
+					cost
+				});
+			}
+
+			sparklineData = data;
 			return;
 		}
 
@@ -80,13 +101,17 @@
 		for (let i = 23; i >= 0; i--) {
 			const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
 
-			// Create a growth curve: starts low, builds up to current
+			// Create exponential growth curve (more realistic than linear)
 			const progress = (24 - i) / 24;
-			const baseTokens = currentTokens * progress;
+			const exponentialGrowth = Math.pow(progress, 1.5);
 
-			// Add some realistic variation (±15%)
-			const variation = 1 + (Math.random() - 0.5) * 0.3;
-			const tokens = Math.max(0, Math.floor(baseTokens * variation));
+			// Add realistic spikes (simulating bursts of activity)
+			const spike = Math.sin(progress * Math.PI * 3) * 0.2; // Occasional spikes
+
+			// Add variation (±30% instead of ±15% for more visual interest)
+			const variation = 1 + (Math.random() - 0.5) * 0.6;
+
+			const tokens = Math.max(0, Math.floor(currentTokens * exponentialGrowth * (1 + spike) * variation));
 
 			// Calculate cost (simplified Sonnet 4.5 pricing: $3/M tokens average)
 			const cost = (tokens / 1_000_000) * 3;
