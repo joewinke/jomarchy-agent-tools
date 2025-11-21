@@ -72,18 +72,29 @@
 
 		// If no tokens yet, use demo data to show what sparkline looks like
 		if (currentTokens === 0) {
-			// Generate demo data with 50K tokens total for visualization
-			const demoTokens = 50000;
+			// Generate demo data with realistic peaks/valleys (like Image #2)
+			const avgHourlyTokens = 2000; // Average per hour for demo
 			for (let i = 23; i >= 0; i--) {
 				const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
+				const hour = timestamp.getHours();
 
-				// Create varied demo curve with realistic spikes
-				const progress = (24 - i) / 24;
-				const exponentialGrowth = Math.pow(progress, 1.5); // Exponential curve
-				const spike = Math.sin(progress * Math.PI * 3) * 0.3; // Add some spikes
-				const variation = 1 + (Math.random() - 0.5) * 0.6; // ±30% variation
+				// Create realistic work pattern: peaks during work hours, valleys at night
+				let baseActivity = 0.3; // Base 30% activity (background)
+				if (hour >= 9 && hour <= 17) {
+					baseActivity = 1.0; // 100% during work hours (9am-5pm)
+				} else if (hour >= 6 && hour < 9) {
+					baseActivity = 0.6; // Morning ramp-up
+				} else if (hour > 17 && hour <= 21) {
+					baseActivity = 0.7; // Evening work
+				}
 
-				const tokens = Math.max(0, Math.floor(demoTokens * exponentialGrowth * (1 + spike) * variation));
+				// Add random spikes for bursts of activity
+				const spike = Math.random() > 0.7 ? Math.random() * 0.5 : 0; // 30% chance of spike
+
+				// Add variation (±40% for realistic noise)
+				const variation = 1 + (Math.random() - 0.5) * 0.8;
+
+				const tokens = Math.floor(avgHourlyTokens * baseActivity * (1 + spike) * variation);
 				const cost = (tokens / 1_000_000) * 3;
 
 				data.push({
@@ -97,21 +108,31 @@
 			return;
 		}
 
-		// Generate 24 hourly data points with realistic variation
+		// Generate 24 hourly data points with realistic peaks/valleys
+		// Distribute total tokens across 24 hours with realistic work pattern
+		const avgHourlyTokens = currentTokens / 24;
+
 		for (let i = 23; i >= 0; i--) {
 			const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
+			const hour = timestamp.getHours();
 
-			// Create exponential growth curve (more realistic than linear)
-			const progress = (24 - i) / 24;
-			const exponentialGrowth = Math.pow(progress, 1.5);
+			// Create realistic work pattern: peaks during work hours, valleys at night
+			let baseActivity = 0.3; // Base 30% activity (background)
+			if (hour >= 9 && hour <= 17) {
+				baseActivity = 1.0; // 100% during work hours (9am-5pm)
+			} else if (hour >= 6 && hour < 9) {
+				baseActivity = 0.6; // Morning ramp-up
+			} else if (hour > 17 && hour <= 21) {
+				baseActivity = 0.7; // Evening work
+			}
 
-			// Add realistic spikes (simulating bursts of activity)
-			const spike = Math.sin(progress * Math.PI * 3) * 0.2; // Occasional spikes
+			// Add random spikes for bursts of activity
+			const spike = Math.random() > 0.7 ? Math.random() * 0.5 : 0; // 30% chance of spike
 
-			// Add variation (±30% instead of ±15% for more visual interest)
-			const variation = 1 + (Math.random() - 0.5) * 0.6;
+			// Add variation (±40% for realistic noise)
+			const variation = 1 + (Math.random() - 0.5) * 0.8;
 
-			const tokens = Math.max(0, Math.floor(currentTokens * exponentialGrowth * (1 + spike) * variation));
+			const tokens = Math.floor(avgHourlyTokens * baseActivity * (1 + spike) * variation);
 
 			// Calculate cost (simplified Sonnet 4.5 pricing: $3/M tokens average)
 			const cost = (tokens / 1_000_000) * 3;

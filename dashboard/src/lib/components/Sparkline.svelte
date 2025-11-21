@@ -332,18 +332,20 @@
 					style="transition: fill 0.3s ease, stroke 0.3s ease, d 0.3s ease;"
 				/>
 			{:else if chartType === 'dots'}
-				<!-- Dot plot (crisp dots only) -->
+				<!-- Dot plot (small squares to avoid aspect ratio stretch) -->
 				{#each data as point, index}
 					{@const x = padding + (index / (data.length - 1 || 1)) * (viewBoxWidth - 2 * padding)}
 					{@const y = scaleY(point.tokens)}
 					{@const color = getColorForValue(point.tokens)}
-					<circle
-						cx={x}
-						cy={y}
-						r="1.5"
+					<rect
+						x={x - 1.25}
+						y={y - 1.25}
+						width="2.5"
+						height="2.5"
 						fill={color}
 						opacity="1"
-						style="transition: fill 0.3s ease, cy 0.3s ease;"
+						rx="0.5"
+						style="transition: fill 0.3s ease, y 0.3s ease;"
 					/>
 				{/each}
 			{/if}
