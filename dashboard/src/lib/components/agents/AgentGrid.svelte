@@ -273,18 +273,6 @@
 			</div>
 		{/if}
 	</div>
-
-	<!-- Capacity Bar (bottom) -->
-	<div class="bg-base-100 border-t border-base-300 p-4">
-		<div class="flex items-center justify-between mb-2">
-			<span class="text-sm font-medium text-base-content">System Capacity</span>
-			<span class="text-xs text-base-content/70">
-				<!-- TODO: Calculate actual capacity in P2 task (jomarchy-agent-tools-m68) -->
-				0h / 0h
-			</span>
-		</div>
-		<progress class="progress progress-primary w-full" value="0" max="100"></progress>
-	</div>
 </div>
 
 <!-- Auto-Assign Preview Modal -->
