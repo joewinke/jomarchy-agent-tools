@@ -332,18 +332,7 @@
 					style="transition: fill 0.3s ease, stroke 0.3s ease, d 0.3s ease;"
 				/>
 			{:else if chartType === 'dots'}
-				<!-- Dot plot with connecting line -->
-				<!-- Subtle connecting line -->
-				<path
-					d={pathData}
-					fill="none"
-					stroke-width="1"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					opacity="0.3"
-					style="stroke: {lineColor}; transition: stroke 0.3s ease, d 0.3s ease;"
-				/>
-				<!-- Larger colored dots -->
+				<!-- Dot plot (crisp dots only) -->
 				{#each data as point, index}
 					{@const x = padding + (index / (data.length - 1 || 1)) * (viewBoxWidth - 2 * padding)}
 					{@const y = scaleY(point.tokens)}
@@ -351,10 +340,8 @@
 					<circle
 						cx={x}
 						cy={y}
-						r="3"
+						r="1.5"
 						fill={color}
-						stroke="white"
-						stroke-width="0.5"
 						opacity="1"
 						style="transition: fill 0.3s ease, cy 0.3s ease;"
 					/>

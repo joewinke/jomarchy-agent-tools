@@ -233,7 +233,7 @@
 
 <div class="flex flex-col h-full">
 	<!-- Header -->
-	<div class="p-4 border-b border-base-300">
+	<div class="p-4 pb-1 border-b border-base-300">
 		<input
 			type="text"
 			placeholder="Search {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}..."
@@ -243,7 +243,7 @@
 		/>
 
 		<!-- Filters -->
-		<div class="flex flex-col gap-3">
+		<div class="flex flex-col gap-1">
 			<!-- Priority Filter -->
 			<div class="form-control">
 				<label class="label py-1">
