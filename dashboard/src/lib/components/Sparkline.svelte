@@ -52,8 +52,8 @@
 	// State
 	// ============================================================================
 
-	type ChartStyle = 'smooth' | 'linear' | 'area' | 'step';
-	let chartStyle = $state<ChartStyle>('smooth');
+	type VisualTheme = 'default' | 'lofi' | 'winamp' | 'nord';
+	let visualTheme = $state<VisualTheme>('default');
 	let hoveredIndex = $state<number | null>(null);
 	let tooltipX = $state(0);
 	let tooltipY = $state(0);
@@ -106,88 +106,84 @@
 
 		let path = `M ${points[0].x},${points[0].y}`;
 
-		if (chartStyle === 'smooth') {
-			// Smooth curve using cubic bezier
-			for (let i = 1; i < points.length; i++) {
-				const prev = points[i - 1];
-				const curr = points[i];
-				const cpX1 = prev.x + (curr.x - prev.x) / 3;
-				const cpY1 = prev.y;
-				const cpX2 = prev.x + (2 * (curr.x - prev.x)) / 3;
-				const cpY2 = curr.y;
-				path += ` C ${cpX1},${cpY1} ${cpX2},${cpY2} ${curr.x},${curr.y}`;
-			}
-		} else if (chartStyle === 'linear') {
-			// Straight lines between points
-			for (let i = 1; i < points.length; i++) {
-				path += ` L ${points[i].x},${points[i].y}`;
-			}
-		} else if (chartStyle === 'step') {
-			// Step function (horizontal then vertical)
-			for (let i = 1; i < points.length; i++) {
-				const prev = points[i - 1];
-				const curr = points[i];
-				path += ` H ${curr.x} V ${curr.y}`;
-			}
-		}
-
-		return path;
-	});
-
-	/** Generate area path (for area chart style) */
-	const areaPath = $derived.by(() => {
-		if (!data || data.length === 0 || chartStyle !== 'area') return '';
-
-		const points = data.map((point, index) => {
-			const x = padding + (index / (data.length - 1 || 1)) * (viewBoxWidth - 2 * padding);
-			const y = scaleY(point.tokens);
-			return { x, y };
-		});
-
-		// Build area path (line + fill to bottom)
-		let path = `M ${points[0].x},${viewBoxHeight - padding}`;
-		path += ` L ${points[0].x},${points[0].y}`;
-
-		// Top line
+		// Smooth curve using cubic bezier for all themes
 		for (let i = 1; i < points.length; i++) {
-			path += ` L ${points[i].x},${points[i].y}`;
+			const prev = points[i - 1];
+			const curr = points[i];
+			const cpX1 = prev.x + (curr.x - prev.x) / 3;
+			const cpY1 = prev.y;
+			const cpX2 = prev.x + (2 * (curr.x - prev.x)) / 3;
+			const cpY2 = curr.y;
+			path += ` C ${cpX1},${cpY1} ${cpX2},${cpY2} ${curr.x},${curr.y}`;
 		}
-
-		// Close path at bottom
-		path += ` L ${points[points.length - 1].x},${viewBoxHeight - padding}`;
-		path += ` Z`;
 
 		return path;
 	});
 
-	/** Calculate line color based on usage */
-	const lineColor = $derived.by(() => {
-		if (colorMode === 'static') {
-			return staticColor;
-		}
+	/** Theme-based styling configuration */
+	const themeConfig = $derived.by(() => {
+		const avgTokens = data?.length
+			? data.reduce((sum, d) => sum + d.tokens, 0) / data.length
+			: 0;
+		const usageColorName = getUsageColor(avgTokens, 'today');
 
-		// Use average tokens for color calculation
-		if (!data || data.length === 0) {
-			return '#3b82f6'; // Default blue
-		}
+		// Base colors for usage levels
+		const usageColors = {
+			success: '#22c55e',
+			info: '#3b82f6',
+			warning: '#f59e0b',
+			error: '#ef4444'
+		};
+		const baseColor = usageColors[usageColorName as keyof typeof usageColors] || '#3b82f6';
 
-		const avgTokens = data.reduce((sum, d) => sum + d.tokens, 0) / data.length;
-		const colorName = getUsageColor(avgTokens, 'today');
+		switch (visualTheme) {
+			case 'lofi':
+				// Lofi aesthetic: pastel colors, soft glow, dreamy vibe
+				return {
+					strokeColor: '#ff6b9d', // Pink/coral
+					strokeWidth: 2.5,
+					opacity: 0.9,
+					glow: true,
+					glowColor: '#ff6b9d',
+					glowBlur: 8,
+					bgGradient: 'linear-gradient(180deg, rgba(255,107,157,0.1) 0%, rgba(189,147,249,0.05) 100%)'
+				};
 
-		// Map color names to solid colors (CSS variables don't work reliably in SVG inline styles)
-		switch (colorName) {
-			case 'success':
-				return '#22c55e'; // Green
-			case 'info':
-				return '#3b82f6'; // Blue
-			case 'warning':
-				return '#f59e0b'; // Orange
-			case 'error':
-				return '#ef4444'; // Red
+			case 'winamp':
+				// Winamp equalizer: bright neon green, sharp, digital
+				return {
+					strokeColor: '#00ff00', // Classic Winamp green
+					strokeWidth: 1.5,
+					opacity: 1,
+					glow: true,
+					glowColor: '#00ff00',
+					glowBlur: 6,
+					bgGradient: 'linear-gradient(180deg, rgba(0,255,0,0.15) 0%, rgba(0,0,0,0.8) 100%)',
+					pixelated: true
+				};
+
+			case 'nord':
+				// Nord/Corporate: professional, muted, clean
+				return {
+					strokeColor: '#88c0d0', // Nord frost blue
+					strokeWidth: 2,
+					opacity: 0.85,
+					glow: false,
+					bgGradient: 'linear-gradient(180deg, rgba(136,192,208,0.08) 0%, rgba(76,86,106,0.05) 100%)'
+				};
+
 			default:
-				return '#3b82f6'; // Blue
+				// Default: usage-based color
+				return {
+					strokeColor: baseColor,
+					strokeWidth: 2,
+					opacity: 1,
+					glow: false
+				};
 		}
 	});
+
+	const lineColor = $derived(themeConfig.strokeColor);
 
 	/** Hovered data point */
 	const hoveredPoint = $derived.by(() => {
@@ -249,44 +245,36 @@
 </script>
 
 <div class="sparkline-container" style="width: {typeof width === 'number' ? width + 'px' : width};">
-	<!-- Style Toolbar -->
+	<!-- Theme Toolbar -->
 	{#if showStyleToolbar}
 		<div class="sparkline-toolbar">
 			<button
-				class="btn btn-xs btn-ghost {chartStyle === 'smooth' ? 'btn-active' : ''}"
-				onclick={() => (chartStyle = 'smooth')}
-				title="Smooth curve"
+				class="btn btn-xs {visualTheme === 'default' ? 'btn-primary' : 'btn-ghost'}"
+				onclick={() => (visualTheme = 'default')}
+				title="Default (usage-based colors)"
 			>
-				<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M3 12 C6 6, 18 6, 21 12" />
-				</svg>
+				<span class="text-[10px] font-medium">Auto</span>
 			</button>
 			<button
-				class="btn btn-xs btn-ghost {chartStyle === 'linear' ? 'btn-active' : ''}"
-				onclick={() => (chartStyle = 'linear')}
-				title="Linear"
+				class="btn btn-xs {visualTheme === 'lofi' ? 'btn-primary' : 'btn-ghost'}"
+				onclick={() => (visualTheme = 'lofi')}
+				title="Lofi (dreamy pastel)"
 			>
-				<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M3 18 L9 12 L15 15 L21 6" />
-				</svg>
+				<span class="text-[10px] font-medium">Lofi</span>
 			</button>
 			<button
-				class="btn btn-xs btn-ghost {chartStyle === 'area' ? 'btn-active' : ''}"
-				onclick={() => (chartStyle = 'area')}
-				title="Area chart"
+				class="btn btn-xs {visualTheme === 'winamp' ? 'btn-primary' : 'btn-ghost'}"
+				onclick={() => (visualTheme = 'winamp')}
+				title="Winamp (neon green)"
 			>
-				<svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
-					<path d="M3 18 L9 12 L15 15 L21 6 L21 18 Z" opacity="0.5" />
-				</svg>
+				<span class="text-[10px] font-medium">Winamp</span>
 			</button>
 			<button
-				class="btn btn-xs btn-ghost {chartStyle === 'step' ? 'btn-active' : ''}"
-				onclick={() => (chartStyle = 'step')}
-				title="Step function"
+				class="btn btn-xs {visualTheme === 'nord' ? 'btn-primary' : 'btn-ghost'}"
+				onclick={() => (visualTheme = 'nord')}
+				title="Nord (corporate blue)"
 			>
-				<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M3 18 H9 V12 H15 V15 H21 V6" />
-				</svg>
+				<span class="text-[10px] font-medium">Nord</span>
 			</button>
 		</div>
 	{/if}
@@ -295,7 +283,7 @@
 		bind:this={svgElement}
 		viewBox="0 0 {viewBoxWidth} {viewBoxHeight}"
 		preserveAspectRatio="none"
-		style="height: {height}px; width: 100%;"
+		style="height: {height}px; width: 100%; background: {themeConfig.bgGradient || 'transparent'}; border-radius: 0.375rem;"
 		onmousemove={handleMouseMove}
 		onmouseleave={handleMouseLeave}
 		role="img"
@@ -315,29 +303,31 @@
 
 		<!-- Sparkline path -->
 		{#if data && data.length > 0}
-			{#if chartStyle === 'area'}
-				<!-- Area chart (filled) -->
-				<path
-					d={areaPath}
-					fill={lineColor}
-					fill-opacity="0.2"
-					stroke={lineColor}
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					style="transition: fill 0.3s ease, stroke 0.3s ease, d 0.3s ease;"
-				/>
-			{:else}
-				<!-- Line chart (smooth, linear, or step) -->
-				<path
-					d={pathData}
-					fill="none"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					style="stroke: {lineColor}; transition: stroke 0.3s ease, d 0.3s ease;"
-				/>
+			<!-- Glow effect (if theme supports it) -->
+			{#if themeConfig.glow}
+				<defs>
+					<filter id="glow-{visualTheme}">
+						<feGaussianBlur stdDeviation="{themeConfig.glowBlur}" result="coloredBlur" />
+						<feMerge>
+							<feMergeNode in="coloredBlur" />
+							<feMergeNode in="SourceGraphic" />
+						</feMerge>
+					</filter>
+				</defs>
 			{/if}
+
+			<!-- Line chart -->
+			<path
+				d={pathData}
+				fill="none"
+				stroke-width={themeConfig.strokeWidth}
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				opacity={themeConfig.opacity}
+				style="stroke: {themeConfig.strokeColor}; transition: stroke 0.3s ease, d 0.3s ease, opacity 0.3s ease; {themeConfig.glow
+					? `filter: url(#glow-${visualTheme}); drop-shadow(0 0 ${themeConfig.glowBlur}px ${themeConfig.glowColor});`
+					: ''}"
+			/>
 
 			<!-- Hover indicator -->
 			{#if hoveredIndex !== null}
@@ -373,17 +363,12 @@
 	}
 
 	.sparkline-toolbar {
-		position: absolute;
-		top: 0;
-		right: 0;
-		z-index: 10;
 		display: flex;
-		gap: 0.125rem;
+		justify-content: flex-end;
+		gap: 0.25rem;
+		margin-bottom: 0.25rem;
 		padding: 0.25rem;
-		background: oklch(var(--b1) / 0.8);
-		backdrop-filter: blur(4px);
-		border-radius: 0.375rem;
-		opacity: 0.6;
+		opacity: 0.7;
 		transition: opacity 0.2s ease;
 	}
 

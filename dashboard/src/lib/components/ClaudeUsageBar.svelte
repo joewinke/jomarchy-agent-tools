@@ -68,6 +68,14 @@
 		// Get current total tokens from system stats
 		const currentTokens = systemStats().tokensToday;
 
+		console.log('ClaudeUsageBar: Generating sparkline with currentTokens:', currentTokens);
+
+		// If no tokens yet, skip generation (will show empty)
+		if (currentTokens === 0) {
+			sparklineData = [];
+			return;
+		}
+
 		// Generate 24 hourly data points with realistic variation
 		for (let i = 23; i >= 0; i--) {
 			const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
@@ -78,7 +86,7 @@
 
 			// Add some realistic variation (±15%)
 			const variation = 1 + (Math.random() - 0.5) * 0.3;
-			const tokens = Math.floor(baseTokens * variation);
+			const tokens = Math.max(0, Math.floor(baseTokens * variation));
 
 			// Calculate cost (simplified Sonnet 4.5 pricing: $3/M tokens average)
 			const cost = (tokens / 1_000_000) * 3;
@@ -89,6 +97,9 @@
 				cost
 			});
 		}
+
+		console.log('ClaudeUsageBar: Generated sparkline data:', data.slice(0, 3), '...', data.slice(-3));
+		console.log('ClaudeUsageBar: Token range:', Math.min(...data.map(d => d.tokens)), 'to', Math.max(...data.map(d => d.tokens)));
 
 		sparklineData = data;
 	}
