@@ -47,11 +47,6 @@ export async function GET({ url }) {
 			Promise.resolve(getTasks({ projectName: projectFilter }))  // Filter tasks only
 		]);
 
-		console.log('  → Data fetched:');
-		console.log('    agents:', agents.length);
-		console.log('    reservations:', reservations.length);
-		console.log('    tasks:', tasks.length);
-
 		// Calculate agent statistics
 		const agentStats = agents.map(agent => {
 			// Count reservations per agent
@@ -115,12 +110,6 @@ export async function GET({ url }) {
 		);
 
 		// Return unified orchestration data
-		console.log('  → Preparing response:');
-		console.log('    agentStats:', agentStats.length);
-		console.log('    tasks:', tasks.length);
-		console.log('    unassigned_tasks:', unassignedTasks.length);
-		console.log('  ✓ Returning JSON response');
-
 		return json({
 			agents: agentStats,
 			reservations,
