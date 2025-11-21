@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { agents as agentsStore } from '$lib/stores/agents.svelte';
-	import Nav from '$lib/components/Nav.svelte';
 
 	// Reactive state derived from agents store
 	const agents = $derived(agentsStore.agents);
@@ -49,8 +48,6 @@
 </script>
 
 <div class="min-h-screen bg-base-200">
-	<Nav />
-
 	<div class="container mx-auto p-4 space-y-6">
 		<!-- Status Banner -->
 		{#if loading}
