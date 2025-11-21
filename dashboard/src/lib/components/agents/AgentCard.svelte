@@ -30,6 +30,11 @@
 	let showUnassignModal = $state(false);
 	let showActivityHistory = $state(false);
 
+	// Token usage state management
+	let usageLoading = $state(false);
+	let usageError = $state(null);
+	let usageRetryCount = $state(0);
+
 	// Compute agent status using $derived
 	// States: live (< 1m, truly responsive) > working (1-10m with task) > active (recent activity) > idle (within 1h) > offline (>1h)
 	const agentStatus = $derived(() => {
@@ -575,6 +580,44 @@
 			alert(`Failed to unassign task: ${error.message}`);
 		}
 	}
+
+	// Retry fetching token usage (exponential backoff)
+	async function retryFetchUsage() {
+		if (usageRetryCount >= 3) {
+			usageError = 'Max retry attempts reached (3). Please refresh the page.';
+			return;
+		}
+
+		usageLoading = true;
+		usageError = null;
+
+		// Exponential backoff: 1s, 2s, 4s
+		const delay = Math.pow(2, usageRetryCount) * 1000;
+		await new Promise(resolve => setTimeout(resolve, delay));
+
+		try {
+			// Trigger parent page to refetch agent data
+			// For now, just reload the page (could be improved with proper state management)
+			window.location.reload();
+		} catch (error) {
+			usageError = error.message || 'Failed to fetch token usage';
+			usageRetryCount++;
+		} finally {
+			usageLoading = false;
+		}
+	}
+
+	// Check if usage data is stale (>5 minutes old)
+	function isUsageStale() {
+		if (!agent.usage || !agent.usage.lastUpdated) return false;
+
+		const lastUpdated = new Date(agent.usage.lastUpdated);
+		const now = new Date();
+		const diffMs = now - lastUpdated;
+		const diffMinutes = diffMs / 60000;
+
+		return diffMinutes > 5;
+	}
 </script>
 
 <div
@@ -839,58 +882,107 @@
 		</div>
 
 		<!-- Token Usage -->
-		{#if agent.usage}
 		<div class="mb-3">
-			<div class="text-xs font-medium text-base-content/70 mb-1">
-				Token Usage:
-			</div>
-
-			<!-- Today's Usage -->
-			<div class="bg-base-200 rounded px-2 py-1.5 mb-1">
-				<div class="flex items-center justify-between text-xs mb-1">
-					<span class="text-base-content/70">Today:</span>
-					<span class="font-mono font-medium {getTokenColorClass(agent.usage.today.total_tokens)}">
-						{formatTokens(agent.usage.today.total_tokens)}
-					</span>
-				</div>
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/50">Cost:</span>
-					<span class="font-mono text-base-content/70">
-						{formatCost(agent.usage.today.cost)}
-					</span>
-				</div>
-				{#if agent.usage.today.total_tokens > 1000000}
-					<div class="mt-1 flex items-center gap-1">
-						<span class="badge badge-error badge-xs">⚠ High Usage</span>
-					</div>
+			<div class="flex items-center justify-between text-xs font-medium text-base-content/70 mb-1">
+				<span>Token Usage:</span>
+				{#if agent.usage && isUsageStale()}
+					<button
+						class="text-warning hover:text-warning-focus flex items-center gap-0.5"
+						onclick={retryFetchUsage}
+						title="Data is stale (>5 minutes old). Click to refresh."
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+						</svg>
+						<span class="text-[10px]">Refresh</span>
+					</button>
 				{/if}
 			</div>
 
-			<!-- Week's Usage -->
-			<div class="bg-base-200 rounded px-2 py-1.5">
-				<div class="flex items-center justify-between text-xs mb-1">
-					<span class="text-base-content/70">This Week:</span>
-					<span class="font-mono font-medium text-base-content">
-						{formatTokens(agent.usage.week.total_tokens)}
-					</span>
+			{#if usageLoading}
+				<!-- Loading State: Skeleton Loader -->
+				<div class="space-y-1">
+					<div class="skeleton h-16 w-full rounded"></div>
+					<div class="skeleton h-16 w-full rounded"></div>
 				</div>
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-base-content/50">Cost:</span>
-					<span class="font-mono text-base-content/70">
-						{formatCost(agent.usage.week.cost)}
-					</span>
+
+			{:else if usageError}
+				<!-- Error State: Inline Error with Retry -->
+				<div class="bg-error/10 border border-error/30 rounded p-3">
+					<div class="flex items-start gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-error shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+						</svg>
+						<div class="flex-1">
+							<p class="text-xs font-medium text-error">Failed to load usage data</p>
+							<p class="text-xs text-error/70 mt-0.5">{usageError}</p>
+							{#if usageRetryCount < 3}
+								<button
+									class="btn btn-xs btn-error btn-outline mt-2"
+									onclick={retryFetchUsage}
+								>
+									Retry ({usageRetryCount}/3)
+								</button>
+							{/if}
+						</div>
+					</div>
 				</div>
-				{#if agent.usage.week.sessionCount > 0}
-					<div class="flex items-center justify-between text-xs mt-1">
-						<span class="text-base-content/50">Sessions:</span>
-						<span class="text-base-content/70">
-							{agent.usage.week.sessionCount}
+
+			{:else if !agent.usage || (agent.usage.today.total_tokens === 0 && agent.usage.week.total_tokens === 0)}
+				<!-- Empty State: No Usage Data -->
+				<div class="bg-base-200 rounded p-3 text-center">
+					<p class="text-xs text-base-content/50">No usage data yet</p>
+					<p class="text-xs text-base-content/40 mt-0.5">Agent hasn't made any API calls</p>
+				</div>
+
+			{:else}
+				<!-- Success State: Show Usage Data -->
+				<!-- Today's Usage -->
+				<div class="bg-base-200 rounded px-2 py-1.5 mb-1">
+					<div class="flex items-center justify-between text-xs mb-1">
+						<span class="text-base-content/70">Today:</span>
+						<span class="font-mono font-medium {getTokenColorClass(agent.usage.today.total_tokens)}">
+							{formatTokens(agent.usage.today.total_tokens)}
 						</span>
 					</div>
-				{/if}
-			</div>
+					<div class="flex items-center justify-between text-xs">
+						<span class="text-base-content/50">Cost:</span>
+						<span class="font-mono text-base-content/70">
+							{formatCost(agent.usage.today.cost)}
+						</span>
+					</div>
+					{#if agent.usage.today.total_tokens > 1000000}
+						<div class="mt-1 flex items-center gap-1">
+							<span class="badge badge-error badge-xs">⚠ High Usage</span>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Week's Usage -->
+				<div class="bg-base-200 rounded px-2 py-1.5">
+					<div class="flex items-center justify-between text-xs mb-1">
+						<span class="text-base-content/70">This Week:</span>
+						<span class="font-mono font-medium text-base-content">
+							{formatTokens(agent.usage.week.total_tokens)}
+						</span>
+					</div>
+					<div class="flex items-center justify-between text-xs">
+						<span class="text-base-content/50">Cost:</span>
+						<span class="font-mono text-base-content/70">
+							{formatCost(agent.usage.week.cost)}
+						</span>
+					</div>
+					{#if agent.usage.week.sessionCount > 0}
+						<div class="flex items-center justify-between text-xs mt-1">
+							<span class="text-base-content/50">Sessions:</span>
+							<span class="text-base-content/70">
+								{agent.usage.week.sessionCount}
+							</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
-		{/if}
 
 		<!-- Recent Activity Feed -->
 		<div class="mb-3">
