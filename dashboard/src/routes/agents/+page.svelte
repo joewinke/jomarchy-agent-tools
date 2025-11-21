@@ -3,7 +3,7 @@
 	import { replaceState } from '$app/navigation';
 	import TaskQueue from '$lib/components/agents/TaskQueue.svelte';
 	import AgentGrid from '$lib/components/agents/AgentGrid.svelte';
-	import SystemCapacityBar from '$lib/components/agents/SystemCapacityBar.svelte';
+	import ClaudeUsageBar from '$lib/components/ClaudeUsageBar.svelte';
 	import {
 		getProjectsFromTasks,
 		getTaskCountByProject
@@ -140,7 +140,6 @@
 		</div>
 	</div>
 
-	<!-- System-Wide Capacity Bar (Fixed Bottom) -->
-	<!-- Use allTasks for global capacity calculation (not filtered by project) -->
-	<SystemCapacityBar {agents} tasks={allTasks} />
+	<!-- Claude API Usage Bar (Fixed Bottom) -->
+	<ClaudeUsageBar />
 </div>

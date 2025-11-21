@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getProjectColor } from '$lib/utils/projectColors';
+
 	// Props
 	let { tasks = [], onTaskClick = null } = $props();
 
@@ -71,6 +73,7 @@
 							{#each columnTasks as task}
 								<button
 									class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow w-full text-left"
+									style="border-left: 4px solid {getProjectColor(task.id)}"
 									onclick={() => handleTaskClick(task.id)}
 								>
 									<div class="card-body p-4">

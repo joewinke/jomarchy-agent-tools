@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { getProjectColor } from '$lib/utils/projectColors';
 
 	// Props
 	let { tasks = [], onNodeClick = null } = $props();
@@ -133,6 +134,8 @@
 			.attr('width', d => Math.max(5, xScale(d.endDate) - xScale(d.startDate)))
 			.attr('height', yScale.bandwidth())
 			.attr('fill', d => priorityColors[d.priority ?? 99])
+			.attr('stroke', d => getProjectColor(d.id))
+			.attr('stroke-width', 2)
 			.attr('opacity', 0.6)
 			.attr('rx', 4);
 

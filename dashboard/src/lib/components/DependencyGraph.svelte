@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { getProjectColor } from '$lib/utils/projectColors';
 
 	// Props
 	let { tasks = [], onNodeClick = null } = $props();
@@ -120,7 +121,7 @@
 			.join('circle')
 			.attr('r', 20)
 			.attr('fill', d => statusColors[d.status] || '#6b7280')
-			.attr('stroke', '#fff')
+			.attr('stroke', d => getProjectColor(d.id))
 			.attr('stroke-width', d => priorityStroke[d.priority] || 1)
 			.attr('class', 'cursor-pointer hover:opacity-80 transition-opacity')
 			.call(drag(simulation))
