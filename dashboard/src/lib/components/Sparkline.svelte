@@ -401,9 +401,9 @@
 				<!-- Chart Type Section -->
 				<div>
 					<div class="text-xs font-semibold mb-1.5 text-base-content/70">Chart Type</div>
-					<div class="flex items-center gap-1">
+					<div class="flex flex-wrap gap-1.5 p-2 bg-base-200 rounded-lg">
 						<button
-							class="btn btn-xs {chartType === 'line' ? 'btn-primary' : 'btn-ghost'}"
+							class="badge badge-sm transition-all duration-200 cursor-pointer {chartType === 'line' ? 'badge-primary shadow-md' : 'badge-ghost hover:badge-primary/20 hover:shadow-sm hover:scale-105'}"
 							onclick={() => (chartType = 'line')}
 							title="Line chart"
 						>
@@ -412,7 +412,7 @@
 							</svg>
 						</button>
 						<button
-							class="btn btn-xs {chartType === 'bars' ? 'btn-primary' : 'btn-ghost'}"
+							class="badge badge-sm transition-all duration-200 cursor-pointer {chartType === 'bars' ? 'badge-primary shadow-md' : 'badge-ghost hover:badge-primary/20 hover:shadow-sm hover:scale-105'}"
 							onclick={() => (chartType = 'bars')}
 							title="Bar chart"
 						>
@@ -425,7 +425,7 @@
 							</svg>
 						</button>
 						<button
-							class="btn btn-xs {chartType === 'area' ? 'btn-primary' : 'btn-ghost'}"
+							class="badge badge-sm transition-all duration-200 cursor-pointer {chartType === 'area' ? 'badge-primary shadow-md' : 'badge-ghost hover:badge-primary/20 hover:shadow-sm hover:scale-105'}"
 							onclick={() => (chartType = 'area')}
 							title="Area chart"
 						>
@@ -434,7 +434,7 @@
 							</svg>
 						</button>
 						<button
-							class="btn btn-xs {chartType === 'dots' ? 'btn-primary' : 'btn-ghost'}"
+							class="badge badge-sm transition-all duration-200 cursor-pointer {chartType === 'dots' ? 'badge-primary shadow-md' : 'badge-ghost hover:badge-primary/20 hover:shadow-sm hover:scale-105'}"
 							onclick={() => (chartType = 'dots')}
 							title="Dot plot"
 						>
@@ -583,16 +583,16 @@
 								<div class="space-y-2">
 									<div class="flex items-center justify-between">
 										<span class="label-text text-xs font-semibold">Color</span>
-										<div class="flex items-center gap-1">
+										<div class="flex flex-wrap gap-1.5 p-2 bg-base-200 rounded-lg">
 											<button
-												class="btn btn-xs {internalColorMode === 'usage' ? 'btn-primary' : 'btn-ghost'}"
+												class="badge badge-sm transition-all duration-200 cursor-pointer {internalColorMode === 'usage' ? 'badge-primary shadow-md' : 'badge-ghost hover:badge-primary/20 hover:shadow-sm hover:scale-105'}"
 												onclick={() => (internalColorMode = 'usage')}
 												title="Auto percentile-based colors"
 											>
 												Auto
 											</button>
 											<button
-												class="btn btn-xs {internalColorMode === 'static' ? 'btn-primary' : 'btn-ghost'}"
+												class="badge badge-sm transition-all duration-200 cursor-pointer {internalColorMode === 'static' ? 'badge-primary shadow-md' : 'badge-ghost hover:badge-primary/20 hover:shadow-sm hover:scale-105'}"
 												onclick={() => (internalColorMode = 'static')}
 												title="Single color palette"
 											>
