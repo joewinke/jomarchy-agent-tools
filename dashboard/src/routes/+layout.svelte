@@ -48,23 +48,16 @@
 
 	// Handle project selection change
 	function handleProjectChange(project: string) {
-		console.log('🟡 [Layout] handleProjectChange called');
-		console.log('  → Project:', project);
-		console.log('  → Current URL:', window.location.href);
-
 		selectedProject = project;
 
-		// Update URL parameter
+		// Update URL parameter (use goto to trigger reactivity in child pages)
 		const url = new URL(window.location.href);
 		if (project === 'All Projects') {
 			url.searchParams.delete('project');
 		} else {
 			url.searchParams.set('project', project);
 		}
-
-		console.log('  → New URL:', url.toString());
 		goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
-		console.log('  ✓ goto called');
 	}
 </script>
 

@@ -2,15 +2,16 @@
 
 **Task:** jat-bgx
 **Date:** 2025-11-21
-**Agent:** WisePrairie
+**Agents:** WisePrairie (API research), FaintRidge (local data sources)
 
 ## Executive Summary
 
-This document provides research findings on accessing Claude API usage metrics for dashboard display. Anthropic provides three primary data sources for usage tracking:
+This document provides research findings on accessing Claude API usage metrics for dashboard display. Anthropic provides four primary data sources for usage tracking:
 
 1. **Rate Limit Headers** (Real-time) - Per-request quota remaining
 2. **Cost Report API** (Historical) - Detailed cost breakdown by model/workspace
 3. **Claude Code Analytics API** (Daily) - Developer productivity metrics
+4. **Local Data Sources** (Claude Code) - OAuth credentials, subscription tier, /context command
 
 ## Data Sources
 
@@ -402,6 +403,161 @@ export async function getMonthlyDeveloperMetrics(adminApiKey: string) {
 
 ---
 
+### 4. Local Data Sources (Claude Code)
+
+**Location:** `~/.claude/` directory
+**Refresh Rate:** Real-time (session-based)
+**Authentication:** None (local files)
+
+#### Available Files
+
+**4.1 OAuth Credentials (`~/.claude/.credentials.json`)**
+
+**Purpose:** Authentication tokens and subscription information
+
+**Structure:**
+```json
+{
+  "claudeAiOauth": {
+    "accessToken": "sk-ant-oat01-...",
+    "refreshToken": "sk-ant-ort01-...",
+    "expiresAt": 1763750679731,
+    "scopes": [
+      "user:inference",
+      "user:profile",
+      "user:sessions:claude_code"
+    ],
+    "subscriptionType": "max",
+    "rateLimitTier": "default_claude_max_20x"
+  }
+}
+```
+
+**Key Findings:**
+- ✅ Provides OAuth tokens for Anthropic API calls
+- ✅ Exposes subscription tier ("max" = Scale tier, highest)
+- ✅ Exposes rate limit tier (20x = 2M tokens/min, 10M tokens/day)
+- ❌ Does NOT contain usage data
+- ⚠️ Contains sensitive tokens - DO NOT commit to git
+- ⚠️ Token expiry timestamp provided (must refresh before expiry)
+
+**Usage:**
+```typescript
+// Read subscription tier for dashboard display
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+interface ClaudeCredentials {
+  claudeAiOauth: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    scopes: string[];
+    subscriptionType: string; // "free" | "build" | "max"
+    rateLimitTier: string; // "default" | "default_claude_max_20x"
+  };
+}
+
+export function getSubscriptionTier(): string {
+  const credPath = path.join(os.homedir(), '.claude/.credentials.json');
+  const creds: ClaudeCredentials = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
+
+  return creds.claudeAiOauth.subscriptionType; // "max"
+}
+
+export function getRateLimitTier(): { tokensPerMin: number; tokensPerDay: number } {
+  const tier = getSubscriptionTier();
+
+  const limits = {
+    free: { tokensPerMin: 50_000, tokensPerDay: 150_000 },
+    build: { tokensPerMin: 200_000, tokensPerDay: 600_000 },
+    max: { tokensPerMin: 2_000_000, tokensPerDay: 10_000_000 }
+  };
+
+  return limits[tier] || limits.free;
+}
+```
+
+**4.2 User Input History (`~/.claude/history.jsonl`)**
+
+**Purpose:** User message history (NOT usage metrics)
+
+**Structure:**
+```json
+{
+  "display": "when a user is on /invoices...",
+  "pastedContents": {},
+  "timestamp": 1758994012830,
+  "project": "/home/jw/code/flush"
+}
+```
+
+**Key Findings:**
+- ❌ Does NOT contain token usage data
+- ❌ Only stores user input messages
+- ❌ Not useful for usage metrics
+- ✅ Could be used for session activity tracking (last message timestamp)
+
+**4.3 `/context` Command (Built-in Claude Code Feature)**
+
+**Purpose:** Real-time session token visualization
+
+**Availability:** Claude Code v1.0.86+ (current version: 2.0.49 ✅)
+
+**What it shows:**
+- Current session token usage breakdown
+- Categories: conversation, files, tools, budget remaining
+- Visual ASCII bar chart
+- Percentage of total budget used
+
+**Sample Output:**
+```
+Context Usage (Current Session):
+
+Conversation: 25,342 tokens ████████████████░░░░
+Files:        8,129 tokens  ██████░░░░░░░░░░░░░░
+Tools:        3,421 tokens  ███░░░░░░░░░░░░░░░░░
+Budget:       5,000 tokens  ████░░░░░░░░░░░░░░░░
+                            (remaining for response)
+
+Total: 41,892 / 200,000 tokens (21%)
+
+5-hour rolling window reset: 3h 12m
+```
+
+**Key Findings:**
+- ✅ Real-time session token tracking
+- ✅ Category-level breakdown
+- ✅ Shows budget remaining
+- ✅ Shows session window reset time
+- ⚠️ Text-based output (not JSON)
+- ⚠️ Session-scoped only (not weekly/daily)
+- ❓ Programmatic access unclear (slash command, not CLI)
+
+**Potential Implementation:**
+
+The `/context` command output is rendered by Claude Code's UI layer. To access this data programmatically for the dashboard, we would need to:
+
+1. **Option A:** Execute `/context` command and parse text output
+   - ⚠️ Brittle (output format may change)
+   - ⚠️ Requires running Claude Code CLI
+   - ❌ Not suitable for dashboard polling
+
+2. **Option B:** Use the same internal API that `/context` uses
+   - ✅ More reliable than parsing text
+   - ⚠️ Requires reverse-engineering Claude Code internals
+   - ❌ Not publicly documented
+
+3. **Option C (Recommended):** Use API rate limit headers instead
+   - ✅ Public API with stable format
+   - ✅ Real-time data
+   - ✅ Already documented (see Section 1)
+
+**Conclusion:** `/context` is useful for interactive CLI usage, but API headers are better for dashboard integration.
+
+---
+
 ## Data Format Summary
 
 ### Session Context (Real-Time)
@@ -584,8 +740,9 @@ ANTHROPIC_ADMIN_API_KEY=sk-ant-admin...   # Admin API key (for cost/analytics)
 1. **Real-Time Metrics**: Available via rate limit headers (per-minute quotas)
 2. **Historical Metrics**: Available via Cost Report API (daily aggregated)
 3. **Developer Metrics**: Available via Claude Code Analytics API (daily aggregated)
-4. **Refresh Rate**: Headers (instant), APIs (1-hour delay)
-5. **Authentication**: Standard key for headers, Admin key for APIs
+4. **Local Subscription Info**: Available via `~/.claude/.credentials.json` (subscription tier, rate limits)
+5. **Refresh Rate**: Headers (instant), APIs (1-hour delay), local files (static)
+6. **Authentication**: Standard key for headers, Admin key for APIs, no auth for local files
 
 ### Implementation Recommendation
 
