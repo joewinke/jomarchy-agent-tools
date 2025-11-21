@@ -16,6 +16,7 @@
 
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { isTaskDrawerOpen } from '$lib/stores/drawerStore';
 
 	interface Action {
 		id: string;
@@ -78,12 +79,12 @@
 		{
 			id: 'create-task',
 			label: 'Create Task',
-			description: 'Open task creation (placeholder)',
+			description: 'Open task creation drawer',
 			icon: icons.plus,
 			category: 'Actions',
 			action: () => {
-				alert('Task creation not implemented yet');
 				closeModal();
+				isTaskDrawerOpen.set(true);
 			}
 		},
 		{
