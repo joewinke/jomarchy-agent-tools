@@ -1452,6 +1452,297 @@ This pattern was validated through user feedback:
 
 **Key Quote:** *"I like that I can see exactly why the task can't be assigned right where I'm trying to drop it."*
 
+## UI Patterns: TaskDetailDrawer Component
+
+### Overview
+
+The **TaskDetailDrawer** component (`src/lib/components/TaskDetailDrawer.svelte`) provides a unified interface for viewing and editing task details using a side drawer pattern. It replaces modal dialogs with a less intrusive, more modern UX.
+
+### Key Features
+
+- **Dual Mode Support:** Seamlessly switch between view (read-only) and edit (form) modes
+- **Drawer Pattern:** Right-side panel that doesn't block the main content
+- **Auto-Fetch:** Loads task data from `/api/tasks/{id}` on mount
+- **Inline Editing:** Edit mode with full form validation
+- **Success/Error Handling:** Visual feedback for all operations
+
+### Component Props
+
+```typescript
+let {
+  taskId = $bindable(null),      // Task ID to display
+  mode = $bindable('view'),       // 'view' or 'edit'
+  isOpen = $bindable(false)       // Drawer open state
+} = $props();
+```
+
+**All props are bindable** - parent components can read and write them reactively.
+
+### Usage Example
+
+```svelte
+<script>
+  import TaskDetailDrawer from '$lib/components/TaskDetailDrawer.svelte';
+
+  let drawerOpen = $state(false);
+  let selectedTaskId = $state(null);
+  let drawerMode = $state('view');
+
+  function openTaskDetails(taskId) {
+    selectedTaskId = taskId;
+    drawerMode = 'view';
+    drawerOpen = true;
+  }
+</script>
+
+<button onclick={() => openTaskDetails('jat-abc')}>
+  View Task Details
+</button>
+
+<TaskDetailDrawer
+  bind:taskId={selectedTaskId}
+  bind:mode={drawerMode}
+  bind:isOpen={drawerOpen}
+/>
+```
+
+### View Mode
+
+**Default mode** - displays task information in read-only format.
+
+**Displays:**
+- Task title (prominent heading)
+- Task ID badge
+- Status, priority, type badges (color-coded)
+- Project badge (if assigned)
+- Labels (badge list)
+- Description (whitespace preserved)
+- Dependencies (depends_on) - with status/priority for each
+- Dependents (blocked_by) - tasks this task blocks
+- Metadata: created date, updated date, assignee
+
+**Actions:**
+- Edit button (switches to edit mode)
+- Close button
+
+### Edit Mode
+
+**Activated by clicking Edit button** - provides full form editing capabilities.
+
+**Editable Fields:**
+- Title (required, validated)
+- Description (optional, textarea)
+- Status (dropdown: open, in_progress, blocked, closed)
+- Priority (dropdown: P0-P4)
+- Type (dropdown: task, bug, feature, epic, chore)
+- Project (dropdown with predefined projects)
+- Labels (comma-separated text input)
+- Assignee (text input)
+
+**Form Behavior:**
+- Client-side validation (title required, type required)
+- PUT request to `/api/tasks/{id}` on save
+- Success: Shows success message, refetches task, switches to view mode
+- Error: Shows inline error message, stays in edit mode
+- Cancel: Discards changes, switches to view mode
+
+**Actions:**
+- Cancel button (discards changes, back to view)
+- Save Changes button (submits form)
+
+### Mode Toggle Pattern
+
+**View Mode → Edit Mode:**
+1. User clicks "Edit" button in header
+2. Component switches mode to 'edit'
+3. Form is populated with current task data
+4. Footer shows Cancel + Save buttons
+
+**Edit Mode → View Mode:**
+1. User clicks "Cancel" or "View" button
+2. Component resets form to original task data
+3. Switches mode to 'view'
+4. Footer shows Close button
+
+**After Save:**
+1. User clicks "Save Changes"
+2. Form validates, submits PUT request
+3. On success: Shows success message for 1.5s
+4. Auto-refetches task data
+5. Automatically switches back to view mode
+
+### Visual States
+
+| State | View | Description |
+|-------|------|-------------|
+| **Loading** | Spinner | Fetching task data from API |
+| **Error** | Error alert + Retry button | Failed to load task |
+| **View Mode** | Read-only content | Displaying task details |
+| **Edit Mode** | Form fields | Editing task details |
+| **Submitting** | Disabled form + spinner | Saving changes |
+| **Success** | Success alert | Changes saved successfully |
+| **Submit Error** | Error alert | Failed to save changes |
+
+### Drawer Layout
+
+**Structure:**
+```
+┌─ Drawer Panel (max-w-2xl) ────────────────────┐
+│ Header                                         │
+│  • Title: "Task Details" or "Edit Task"        │
+│  • Task ID badge (view mode only)             │
+│  • Mode toggle button (Edit ↔ View)           │
+│  • Close button (✕)                            │
+├────────────────────────────────────────────────┤
+│ Content (scrollable)                           │
+│  • View: Sections with task data              │
+│  • Edit: Form with input fields               │
+│                                                │
+│  (flexible height, overflow-y-auto)            │
+├────────────────────────────────────────────────┤
+│ Footer (bg-base-200)                           │
+│  • View: Close button                          │
+│  • Edit: Cancel + Save Changes buttons        │
+└────────────────────────────────────────────────┘
+```
+
+**Drawer Properties:**
+- Side: Right (drawer-end)
+- Width: max-w-2xl (responsive)
+- Overlay: Click to close
+- Z-index: z-50 (appears above most content)
+- Shadow: shadow-2xl (prominent depth)
+
+### API Integration
+
+**Fetch Task:**
+```javascript
+GET /api/tasks/{taskId}
+Response: { task: { id, title, description, ... } }
+```
+
+**Update Task:**
+```javascript
+PUT /api/tasks/{taskId}
+Body: { title, description, priority, type, status, project, labels, assignee }
+Response: { task: { ... } }
+```
+
+**Error Handling:**
+- Network errors: Shows error alert with retry button
+- Validation errors: Inline field-level error messages
+- API errors: Shows error message from server
+- 404 Not Found: "Failed to fetch task" error
+
+### Badge Color Coding
+
+**Status Badges:**
+- `open` → info (blue)
+- `in_progress` → warning (yellow)
+- `closed` → success (green)
+- `blocked` → error (red)
+
+**Priority Badges:**
+- P0 → error (red, Critical)
+- P1 → warning (yellow, High)
+- P2 → info (blue, Medium)
+- P3-P4 → ghost (gray, Low)
+
+**Project Badge:**
+- primary (brand color)
+
+**Labels:**
+- outline badges (neutral)
+
+### Comparison: Drawer vs Modal
+
+**Why Drawer Pattern?**
+
+| Feature | Drawer (TaskDetailDrawer) | Modal (TaskDetailModal) |
+|---------|---------------------------|-------------------------|
+| **View Blocking** | No - side panel | Yes - overlay blocks view |
+| **Context Preservation** | Keep main view visible | Main view obscured |
+| **Multi-tasking** | Can reference other tasks | Must close to see other content |
+| **Screen Real Estate** | Efficient use of width | Centers, wastes edges |
+| **Mobile UX** | Full-width, native feel | Often awkward on mobile |
+| **Modern UX** | Contemporary pattern | Traditional pattern |
+
+**When to Use Each:**
+- **Drawer:** Task details, editing workflows, reference panels
+- **Modal:** Critical confirmations, alerts, focused single actions
+
+### Best Practices
+
+**Do:**
+- ✅ Use bindable props for reactive parent-child communication
+- ✅ Validate form fields before submission
+- ✅ Show inline error messages (not toasts)
+- ✅ Provide visual feedback for all state changes
+- ✅ Auto-refetch data after successful updates
+- ✅ Reset form when switching from edit → view
+
+**Don't:**
+- ❌ Modify task data without saving
+- ❌ Allow submission with invalid data
+- ❌ Close drawer during API requests
+- ❌ Use generic error messages
+- ❌ Forget to handle loading/error states
+
+### Extending the Component
+
+**Add New Field:**
+1. Add field to formData state
+2. Add field to view mode display
+3. Add input to edit mode form
+4. Include in PUT request body
+
+**Example - Adding "Due Date":**
+```svelte
+// 1. Add to formData
+let formData = $state({
+  // ... existing fields
+  dueDate: ''
+});
+
+// 2. View mode display
+{#if task.due_date}
+  <div>
+    <h4 class="text-sm font-semibold mb-2">Due Date</h4>
+    <p>{formatDate(task.due_date)}</p>
+  </div>
+{/if}
+
+// 3. Edit mode form
+<div class="form-control">
+  <label class="label">
+    <span class="label-text font-semibold">Due Date</span>
+  </label>
+  <input type="date" class="input input-bordered" bind:value={formData.dueDate} />
+</div>
+
+// 4. Include in PUT request
+const requestBody = {
+  // ... existing fields
+  due_date: formData.dueDate || undefined
+};
+```
+
+### Files
+
+**Component:** `src/lib/components/TaskDetailDrawer.svelte` (701 lines)
+
+**Related Components:**
+- `TaskCreationDrawer.svelte` - Similar drawer pattern for task creation
+- `TaskDetailModal.svelte` - Legacy modal version (deprecated)
+
+**API Routes:**
+- `src/routes/api/tasks/[id]/+server.js` - GET/PUT task endpoint
+
+**Task Reference:**
+- jat-25i: Create TaskDetailDrawer base component (completed)
+- jat-lli: Implement auto-save edit mode (planned)
+- jat-dtq: Add quick actions to view mode (planned)
+
 ## Multi-Project Filtering
 
 ### Overview
