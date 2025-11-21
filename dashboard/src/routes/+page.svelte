@@ -1,32 +1,43 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import TaskList from '$lib/components/TaskList.svelte';
 	import DependencyGraph from '$lib/components/DependencyGraph.svelte';
-	import Nav from '$lib/components/Nav.svelte';
 	import TaskDetailModal from '$lib/components/TaskDetailModal.svelte';
 
-	let selectedProject = $state('all');
 	let selectedPriority = $state('all');
 	let selectedStatus = $state('all');
 	let searchQuery = $state('');
-	let viewMode = $state('list'); // 'list' or 'graph'
-	let tasks = $state([]);
-	let selectedTaskId = $state(null);
+	let viewMode = $state<'list' | 'graph'>('list');
+	let tasks = $state<any[]>([]);
+	let allTasks = $state<any[]>([]);
+	let selectedTaskId = $state<string | null>(null);
 
-	// Fetch tasks based on filters
+	// Read project from URL parameter
+	const projectParam = $derived($page.url.searchParams.get('project'));
+
+	// Filter tasks by project
+	const filteredTasks = $derived(() => {
+		if (!projectParam || projectParam === 'All Projects') {
+			return allTasks;
+		}
+		// Filter by project prefix (e.g., "jat-abc" matches "jat")
+		return allTasks.filter((task) => task.id.startsWith(projectParam + '-'));
+	});
+
+	// Fetch all tasks
 	async function fetchTasks() {
 		const params = new URLSearchParams();
-		if (selectedProject !== 'all') params.append('project', selectedProject);
 		if (selectedStatus !== 'all') params.append('status', selectedStatus);
 		if (selectedPriority !== 'all') params.append('priority', selectedPriority);
 
 		const response = await fetch(`/api/tasks?${params}`);
 		const data = await response.json();
-		tasks = data.tasks || [];
+		allTasks = data.tasks || [];
 	}
 
 	// Handle node click in graph
-	function handleNodeClick(taskId) {
+	function handleNodeClick(taskId: string) {
 		selectedTaskId = taskId;
 	}
 
@@ -35,9 +46,14 @@
 		selectedTaskId = null;
 	}
 
-	// Fetch tasks when filters change
+	// Refetch tasks when filters change
 	$effect(() => {
 		fetchTasks();
+	});
+
+	// Update displayed tasks when project filter or allTasks change
+	$effect(() => {
+		tasks = filteredTasks();
 	});
 
 	onMount(() => {
@@ -46,22 +62,9 @@
 </script>
 
 <div class="min-h-screen bg-base-200">
-	<Nav />
-
+	<!-- Secondary filters (priority, status, search) -->
 	<div class="bg-base-100 border-b border-base-300 p-4">
 		<div class="flex flex-wrap gap-4">
-			<div class="form-control">
-				<label class="label" for="project-filter">
-					<span class="label-text">Project</span>
-				</label>
-				<select id="project-filter" class="select select-bordered select-sm" bind:value={selectedProject}>
-					<option value="all">All Projects</option>
-					<option value="chimaro">Chimaro</option>
-					<option value="jomarchy">Jomarchy</option>
-					<option value="jomarchy-agent-tools">JAT</option>
-				</select>
-			</div>
-
 			<div class="form-control">
 				<label class="label" for="priority-filter">
 					<span class="label-text">Priority</span>
@@ -103,7 +106,6 @@
 
 	{#if viewMode === 'list'}
 		<TaskList
-			bind:selectedProject
 			bind:selectedPriority
 			bind:selectedStatus
 			bind:searchQuery
