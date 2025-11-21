@@ -13,16 +13,13 @@
 
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import TaskCreationDrawer from './TaskCreationDrawer.svelte';
+	import { isTaskDrawerOpen } from '$lib/stores/drawerStore';
 
 	// Modal state
 	let isOpen = $state(false);
 	let searchQuery = $state('');
 	let selectedIndex = $state(0);
 	let searchInput: HTMLInputElement;
-
-	// Drawer state
-	let isDrawerOpen = $state(false);
 
 	// Task search state
 	let searchMode = $state<'actions' | 'tasks'>('actions'); // 'actions' = command palette, 'tasks' = task search
@@ -82,7 +79,7 @@
 			keywords: ['create', 'new', 'task', 'add'],
 			execute: () => {
 				close();
-				isDrawerOpen = true;
+				isTaskDrawerOpen.set(true);
 			}
 		},
 		{
@@ -306,13 +303,6 @@
 			selectedIndex = 0;
 		}
 	});
-
-	// Handle task creation success
-	function handleTaskCreated(task: any) {
-		console.log('Task created:', task);
-		// Could navigate to the task or refresh data here
-		// For now, just log it
-	}
 </script>
 
 <!-- Modal -->
@@ -405,69 +395,88 @@
 							<p class="text-sm">Try different search terms</p>
 						</div>
 					{:else}
-						<ul class="menu p-2">
-							{#each tasks as task, index}
-								<li>
-									<button
-										type="button"
-										class="flex items-start gap-3 p-3 rounded-lg {index === selectedIndex
-											? 'bg-primary text-primary-content'
-											: ''}"
-										onclick={() => {
-											goto(`/?task=${task.id}`);
-											close();
-										}}
-										onmouseenter={() => (selectedIndex = index)}
-									>
-										<!-- Priority badge -->
-										<div class="flex-shrink-0">
-											<span
-												class="badge badge-sm {task.priority === 0
-													? 'badge-error'
-													: task.priority === 1
-														? 'badge-warning'
-														: task.priority === 2
-															? 'badge-info'
-															: 'badge-ghost'}"
+						<!-- Group tasks by project -->
+						{@const groupedTasks = tasks.reduce((acc, task) => {
+							const project = task.project || 'unknown';
+							if (!acc[project]) acc[project] = [];
+							acc[project].push(task);
+							return acc;
+						}, {})}
+
+						<div class="p-2">
+							{#each Object.entries(groupedTasks) as [project, projectTasks]}
+								<!-- Project header -->
+								<div class="px-3 py-1.5 text-xs font-semibold text-base-content/50 uppercase tracking-wider sticky top-0 bg-base-200/90 backdrop-blur-sm">
+									{project} ({projectTasks.length})
+								</div>
+
+								<!-- Tasks in this project -->
+								<ul class="menu p-0 mb-3">
+									{#each projectTasks as task}
+										{@const flatIndex = tasks.indexOf(task)}
+										<li>
+											<button
+												type="button"
+												class="flex items-start gap-3 p-3 rounded-lg {flatIndex === selectedIndex
+													? 'bg-primary text-primary-content'
+													: ''}"
+												onclick={() => {
+													goto(`/?task=${task.id}`);
+													close();
+												}}
+												onmouseenter={() => (selectedIndex = flatIndex)}
 											>
-												P{task.priority}
-											</span>
-										</div>
-										<!-- Task details -->
-										<div class="flex-1 text-left min-w-0">
-											<div class="flex items-center gap-2 mb-1">
-												<span class="font-mono text-xs {index === selectedIndex ? 'text-primary-content/70' : 'text-base-content/50'}">
-													{task.id}
-												</span>
-												<span class="font-medium truncate">{task.title}</span>
-											</div>
-											{#if task.description}
-												<div
-													class="text-sm opacity-70 line-clamp-1 {index === selectedIndex
-														? 'text-primary-content/70'
-														: 'text-base-content/70'}"
-												>
-													{task.description}
+												<!-- Priority badge -->
+												<div class="flex-shrink-0">
+													<span
+														class="badge badge-sm {task.priority === 0
+															? 'badge-error'
+															: task.priority === 1
+																? 'badge-warning'
+																: task.priority === 2
+																	? 'badge-info'
+																	: 'badge-ghost'}"
+													>
+														P{task.priority}
+													</span>
 												</div>
-											{/if}
-											{#if task.labels && task.labels.length > 0}
-												<div class="flex gap-1 mt-1 flex-wrap">
-													{#each task.labels.slice(0, 3) as label}
-														<span class="badge badge-xs badge-outline">{label}</span>
-													{/each}
-													{#if task.labels.length > 3}
-														<span class="badge badge-xs badge-ghost">+{task.labels.length - 3}</span>
+												<!-- Task details -->
+												<div class="flex-1 text-left min-w-0">
+													<div class="flex items-center gap-2 mb-1">
+														<span class="font-mono text-xs {flatIndex === selectedIndex ? 'text-primary-content/70' : 'text-base-content/50'}">
+															{task.id}
+														</span>
+														<span class="font-medium truncate">{task.title}</span>
+													</div>
+													{#if task.description}
+														<div
+															class="text-sm opacity-70 line-clamp-1 {flatIndex === selectedIndex
+																? 'text-primary-content/70'
+																: 'text-base-content/70'}"
+														>
+															{task.description}
+														</div>
+													{/if}
+													{#if task.labels && task.labels.length > 0}
+														<div class="flex gap-1 mt-1 flex-wrap">
+															{#each task.labels.slice(0, 3) as label}
+																<span class="badge badge-xs badge-outline">{label}</span>
+															{/each}
+															{#if task.labels.length > 3}
+																<span class="badge badge-xs badge-ghost">+{task.labels.length - 3}</span>
+															{/if}
+														</div>
 													{/if}
 												</div>
-											{/if}
-										</div>
-										{#if index === selectedIndex}
-											<kbd class="kbd kbd-sm">↵</kbd>
-										{/if}
-									</button>
-								</li>
+												{#if flatIndex === selectedIndex}
+													<kbd class="kbd kbd-sm">↵</kbd>
+												{/if}
+											</button>
+										</li>
+									{/each}
+								</ul>
 							{/each}
-						</ul>
+						</div>
 					{/if}
 				{/if}
 			</div>
@@ -499,6 +508,3 @@
 		</div>
 	</div>
 {/if}
-
-<!-- Task Creation Drawer -->
-<TaskCreationDrawer bind:isOpen={isDrawerOpen} onTaskCreated={handleTaskCreated} />

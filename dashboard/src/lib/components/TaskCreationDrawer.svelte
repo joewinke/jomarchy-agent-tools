@@ -11,9 +11,18 @@
 	 */
 
 	import { goto } from '$app/navigation';
+	import { isTaskDrawerOpen } from '$lib/stores/drawerStore';
 
-	// Props
-	let { isOpen = $bindable(false), onTaskCreated = () => {} } = $props();
+	// Reactive state from store
+	let isOpen = $state(false);
+
+	// Subscribe to store
+	$effect(() => {
+		const unsubscribe = isTaskDrawerOpen.subscribe(value => {
+			isOpen = value;
+		});
+		return unsubscribe;
+	});
 
 	// Form state
 	let formData = $state({
@@ -123,13 +132,10 @@
 			// Success!
 			successMessage = `Task ${data.task.id} created successfully!`;
 
-			// Notify parent component
-			onTaskCreated(data.task);
-
-			// Reset form
+			// Reset form and close drawer after showing success message
 			setTimeout(() => {
 				resetForm();
-				isOpen = false;
+				isTaskDrawerOpen.set(false);
 				successMessage = null;
 			}, 1500);
 		} catch (error) {
@@ -160,7 +166,7 @@
 	function handleClose() {
 		if (!isSubmitting) {
 			resetForm();
-			isOpen = false;
+			isTaskDrawerOpen.set(false);
 		}
 	}
 
@@ -168,17 +174,17 @@
 	function handleCancel() {
 		if (!isSubmitting) {
 			resetForm();
-			isOpen = false;
+			isTaskDrawerOpen.set(false);
 		}
 	}
 </script>
 
 <!-- Drawer Overlay -->
 {#if isOpen}
-	<div class="fixed inset-0 z-50 flex items-stretch justify-end">
+	<div class="fixed inset-0 z-50">
 		<!-- Backdrop -->
 		<div
-			class="fixed inset-0 bg-black/50 transition-opacity"
+			class="absolute inset-0 bg-black/50 transition-opacity"
 			onclick={handleClose}
 			role="button"
 			tabindex="-1"
@@ -186,7 +192,7 @@
 		></div>
 
 		<!-- Drawer Panel -->
-		<div class="relative bg-base-100 w-full max-w-2xl h-full flex flex-col shadow-2xl animate-slide-in-right">
+		<div class="absolute right-0 top-0 bottom-0 bg-base-100 w-full max-w-2xl flex flex-col shadow-2xl animate-slide-in-right">
 			<!-- Header -->
 			<div class="flex items-center justify-between p-6 border-b border-base-300">
 				<div>

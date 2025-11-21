@@ -4,9 +4,11 @@
 	import { onMount } from 'svelte';
 	import { themeChange } from 'theme-change';
 	import { page } from '$app/stores';
-	import { replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
+	import TaskCreationDrawer from '$lib/components/TaskCreationDrawer.svelte';
 	import Nav from '$lib/components/Nav.svelte';
+	import ClaudeUsageBar from '$lib/components/ClaudeUsageBar.svelte';
 	import { getProjectsFromTasks, getTaskCountByProject } from '$lib/utils/projectUtils';
 
 	let { children } = $props();
@@ -46,6 +48,10 @@
 
 	// Handle project selection change
 	function handleProjectChange(project: string) {
+		console.log('🟡 [Layout] handleProjectChange called');
+		console.log('  → Project:', project);
+		console.log('  → Current URL:', window.location.href);
+
 		selectedProject = project;
 
 		// Update URL parameter
@@ -55,7 +61,10 @@
 		} else {
 			url.searchParams.set('project', project);
 		}
-		replaceState(url, {});
+
+		console.log('  → New URL:', url.toString());
+		goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
+		console.log('  ✓ goto called');
 	}
 </script>
 
@@ -66,6 +75,9 @@
 <!-- Global Command Palette (Cmd+K / Ctrl+K) -->
 <CommandPalette />
 
+<!-- Task Creation Drawer (opens from command palette) -->
+<TaskCreationDrawer />
+
 <!-- Unified Navigation Bar (shown on all pages) -->
 <Nav
 	{projects}
@@ -75,3 +87,6 @@
 />
 
 {@render children()}
+
+<!-- Claude Usage Bar (fixed bottom) -->
+<ClaudeUsageBar />
