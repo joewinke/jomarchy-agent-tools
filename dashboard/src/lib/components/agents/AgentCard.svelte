@@ -427,13 +427,6 @@
 			const data = await response.json();
 			sparklineData = data.data || [];
 
-			// Debug logging
-			console.log(`[AgentCard] Fetched sparkline for ${agent.name}:`, {
-				dataPoints: sparklineData.length,
-				firstPoint: sparklineData[0],
-				lastPoint: sparklineData[sparklineData.length - 1]
-			});
-
 		} catch (error) {
 			console.error('Error fetching sparkline data:', error);
 			sparklineError = error.message;

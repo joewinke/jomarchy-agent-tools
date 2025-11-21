@@ -174,16 +174,6 @@
 		hoveredIndex = clampedIndex;
 		tooltipX = event.clientX;
 		tooltipY = event.clientY;
-
-		// Debug: Log the hovered data point
-		const point = data[clampedIndex];
-		console.log('[Sparkline] Hovered point:', {
-			index: clampedIndex,
-			point,
-			timestamp: point?.timestamp,
-			tokens: point?.tokens,
-			cost: point?.cost
-		});
 	}
 
 	/**
@@ -244,11 +234,10 @@
 			<path
 				d={pathData}
 				fill="none"
-				stroke={lineColor}
 				stroke-width="2"
 				stroke-linecap="round"
 				stroke-linejoin="round"
-				style="transition: stroke 0.3s ease, d 0.3s ease;"
+				style="stroke: {lineColor}; transition: stroke 0.3s ease, d 0.3s ease;"
 			/>
 
 			<!-- Hover indicator -->
