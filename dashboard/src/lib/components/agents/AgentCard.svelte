@@ -7,6 +7,7 @@
 
 	let isDragOver = $state(false);
 	let isAssigning = $state(false);
+	let assignSuccess = $state(false);
 	let assignError = $state(null);
 	let hasConflict = $state(false);
 	let conflictReasons = $state([]);
@@ -219,18 +220,24 @@
 				timeoutPromise
 			]);
 
-			// Success - clear any errors
+			// Success - show success animation!
 			assignError = null;
+			isAssigning = false;
+			assignSuccess = true;
+
+			// Auto-hide success animation after 2 seconds
+			setTimeout(() => {
+				assignSuccess = false;
+			}, 2000);
 		} catch (error) {
 			console.error('Failed to assign task:', error);
 			assignError = error.message || 'Failed to assign task';
+			isAssigning = false;
 
 			// Auto-clear error after 5 seconds
 			setTimeout(() => {
 				assignError = null;
 			}, 5000);
-		} finally {
-			isAssigning = false;
 		}
 	}
 
@@ -555,7 +562,7 @@
 </script>
 
 <div
-	class="card bg-base-100 border-2 transition-all relative {isDragOver && hasConflict ? 'border-error border-dashed bg-error/10 scale-105' : isDragOver ? 'border-success border-dashed bg-success/10 scale-105' : 'border-base-300 hover:border-primary'} {isAssigning ? 'pointer-events-none' : ''}"
+	class="card bg-base-100 border-2 transition-all relative {isDragOver && hasConflict ? 'border-error border-dashed bg-error/10 scale-105' : isDragOver ? 'border-success border-dashed bg-success/10 scale-105' : assignSuccess ? 'border-success bg-success/5 animate-pulse' : 'border-base-300 hover:border-primary'} {isAssigning || assignSuccess ? 'pointer-events-none' : ''}"
 	role="button"
 	tabindex="0"
 	ondrop={handleDrop}
@@ -569,6 +576,22 @@
 			<div class="text-center">
 				<span class="loading loading-spinner loading-lg text-primary"></span>
 				<p class="text-sm font-medium text-base-content mt-2">Assigning task...</p>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Success Animation Overlay -->
+	{#if assignSuccess}
+		<div class="absolute inset-0 bg-success/20 backdrop-blur-sm rounded-lg z-50 flex items-center justify-center animate-in fade-in duration-300">
+			<div class="text-center animate-in zoom-in duration-500">
+				<!-- Large checkmark circle -->
+				<div class="mx-auto w-20 h-20 bg-success rounded-full flex items-center justify-center mb-3 animate-bounce">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-success-content" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+					</svg>
+				</div>
+				<p class="text-lg font-bold text-success">Task Assigned!</p>
+				<p class="text-sm text-success-content/80 mt-1">Successfully added to queue</p>
 			</div>
 		</div>
 	{/if}
