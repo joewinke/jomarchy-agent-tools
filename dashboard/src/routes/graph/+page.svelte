@@ -18,7 +18,7 @@
 
 	// Filters
 	let selectedPriority = $state('all');
-	let selectedStatus = $state('all');
+	let selectedStatus = $state('open');
 	let searchQuery = $state('');
 
 	// Read project from URL parameter
