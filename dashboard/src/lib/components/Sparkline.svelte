@@ -61,7 +61,7 @@
 		showTooltip = true,
 		showGrid = false,
 		colorMode = 'usage',
-		staticColor = 'oklch(var(--p))',
+		staticColor = 'hsl(var(--p))',
 		showStyleToolbar = true,
 		defaultTimeRange = '24h',
 		defaultColorMode = 'usage'
@@ -210,7 +210,7 @@
 			return staticColor;
 		}
 
-		if (!filteredData || filteredData.length === 0) return 'oklch(var(--p))'; // Primary color
+		if (!filteredData || filteredData.length === 0) return 'hsl(var(--p))'; // Primary color
 
 		// Use relative thresholds based on actual data range
 		const allTokens = filteredData.map((d) => d.tokens);
@@ -222,15 +222,15 @@
 		const percentile = range > 0 ? ((tokens - min) / range) * 100 : 50;
 
 		// Theme-based color gradient using DaisyUI color classes
-		if (percentile < 25) return 'oklch(var(--su))'; // Success (green) - bottom 25%
-		if (percentile < 50) return 'oklch(var(--in))'; // Info (blue) - 25-50%
-		if (percentile < 75) return 'oklch(var(--wa))'; // Warning (orange) - 50-75%
-		return 'oklch(var(--er))'; // Error (red) - top 25%
+		if (percentile < 25) return 'hsl(var(--su))'; // Success (green) - bottom 25%
+		if (percentile < 50) return 'hsl(var(--in))'; // Info (blue) - 25-50%
+		if (percentile < 75) return 'hsl(var(--wa))'; // Warning (orange) - 50-75%
+		return 'hsl(var(--er))'; // Error (red) - top 25%
 	}
 
 	/** Calculate line color based on average usage */
 	const lineColor = $derived.by(() => {
-		if (!filteredData || filteredData.length === 0) return 'oklch(var(--p))'; // Primary color
+		if (!filteredData || filteredData.length === 0) return 'hsl(var(--p))'; // Primary color
 		const avgTokens = filteredData.reduce((sum, d) => sum + d.tokens, 0) / filteredData.length;
 		return getColorForValue(avgTokens);
 	});
@@ -613,7 +613,8 @@
 					y1={viewBoxHeight * ratio}
 					x2={viewBoxWidth - padding}
 					y2={viewBoxHeight * ratio}
-					stroke="oklch(var(--bc) / {ratio === 0.5 ? 0.15 : 0.08})"
+					stroke="currentColor"
+					opacity={ratio === 0.5 ? 0.15 : 0.08}
 					stroke-width="0.5"
 					stroke-dasharray={ratio === 0.5 ? '0' : '2,2'}
 				/>
@@ -625,7 +626,8 @@
 					y1={padding}
 					x2={viewBoxWidth * ratio}
 					y2={viewBoxHeight - padding}
-					stroke="oklch(var(--bc) / 0.06)"
+					stroke="currentColor"
+					opacity="0.06"
 					stroke-width="0.5"
 					stroke-dasharray="2,2"
 				/>
@@ -746,8 +748,8 @@
 
 	.sparkline-tooltip {
 		position: fixed;
-		background: oklch(var(--b1));
-		border: 1px solid oklch(var(--bc) / 0.2);
+		background: hsl(var(--b1));
+		border: 1px solid hsl(var(--bc) / 0.2);
 		border-radius: 0.375rem;
 		padding: 0.5rem;
 		pointer-events: none;
@@ -764,6 +766,6 @@
 		left: 50%;
 		transform: translateX(-50%);
 		border: 6px solid transparent;
-		border-top-color: oklch(var(--b1));
+		border-top-color: hsl(var(--b1));
 	}
 </style>
