@@ -27,6 +27,7 @@ export function getInboxForThread(agentName, threadId = null, options = {}) {
 
 /**
  * Get recent activities for an agent (last 10 messages)
+ * @deprecated Use getBeadsActivities() instead - shows agent's task history, not shared inbox
  * @param {string} agentName - Agent name
  * @returns {Array} - Array of activity objects {ts, preview, content, type}
  */
@@ -45,6 +46,60 @@ export function getAgentActivities(agentName) {
 			type: msg.importance === 'urgent' ? 'urgent' :
 			      msg.ack_required ? 'action_required' : 'message'
 		}));
+}
+
+/**
+ * Get recent Beads task activities for an agent (last 10 task updates)
+ * Shows tasks the agent worked on, with their status transitions
+ * @param {string} agentName - Agent name
+ * @param {Array} allTasks - All tasks from Beads (from getTasks())
+ * @returns {Array} - Array of activity objects {ts, preview, content, type}
+ */
+export function getBeadsActivities(agentName, allTasks) {
+	if (!allTasks || allTasks.length === 0) {
+		return [];
+	}
+
+	// Filter tasks that were assigned to this agent (current or past)
+	const agentTasks = allTasks.filter(task => task.assignee === agentName);
+
+	// Convert tasks to activity format
+	// Sort by updated_at (most recent first) and limit to 10
+	const activities = agentTasks
+		.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+		.slice(0, 10)
+		.map(task => {
+			// Generate preview text based on task status
+			let preview = `[${task.id}] ${task.title}`;
+
+			// Add status indicator to preview
+			if (task.status === 'closed') {
+				preview = `[${task.id}] Completed: ${task.title}`;
+			} else if (task.status === 'in_progress') {
+				preview = `[${task.id}] Working: ${task.title}`;
+			} else if (task.status === 'blocked') {
+				preview = `[${task.id}] Blocked: ${task.title}`;
+			} else if (task.status === 'open') {
+				preview = `[${task.id}] Starting: ${task.title}`;
+			}
+
+			// Determine activity type based on task status
+			let type = 'message';
+			if (task.status === 'blocked') {
+				type = 'urgent';
+			} else if (task.status === 'in_progress') {
+				type = 'action_required';
+			}
+
+			return {
+				ts: task.updated_at,
+				preview: preview,
+				content: task.description || task.title,
+				type: type
+			};
+		});
+
+	return activities;
 }
 
 /**

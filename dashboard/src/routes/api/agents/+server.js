@@ -7,15 +7,15 @@
  * GET /api/agents?usage=true   → Include token usage data for each agent
  * POST /api/agents             → Assign task to agent (body: { taskId, agentName })
  *
- * Each agent in full mode includes an 'activities' array with recent Agent Mail messages:
+ * Each agent in full mode includes an 'activities' array with recent Beads task history:
  * - ts: timestamp (ISO 8601)
- * - preview: message subject or preview text
- * - content: full message content (markdown)
- * - type: 'urgent' | 'action_required' | 'message'
+ * - preview: task status update (e.g., "[jat-abc] Completed: Task title")
+ * - content: task description
+ * - type: 'urgent' | 'action_required' | 'message' (based on task status)
  */
 
 import { json } from '@sveltejs/kit';
-import { getAgents, getReservations, getAgentActivities } from '$lib/server/agent-mail.js';
+import { getAgents, getReservations, getBeadsActivities } from '$lib/server/agent-mail.js';
 import { getTasks } from '$lib/server/beads.js';
 import { getAllAgentUsage, getHourlyUsage } from '$lib/utils/tokenUsage.js';
 import { exec } from 'child_process';
@@ -96,10 +96,10 @@ export async function GET({ url }) {
 				return expiresAt > new Date() && !r.released_ts;
 			});
 
-			// Get recent activities (last 10 messages)
+			// Get recent activities from Beads task history (last 10 task updates)
 			let activities = [];
 			try {
-				activities = getAgentActivities(agent.name);
+				activities = getBeadsActivities(agent.name, tasks);
 			} catch (error) {
 				console.error(`Failed to fetch activities for agent ${agent.name}:`, error);
 				// Continue with empty activities array
