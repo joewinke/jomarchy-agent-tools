@@ -175,7 +175,7 @@
 	<div class="bg-base-100 border-b border-base-300 p-4">
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex-1 min-w-0">
-				<ClaudeUsageBar mode="inline" />
+				<ClaudeUsageBar mode="inline" agentsProp={agents} />
 			</div>
 
 

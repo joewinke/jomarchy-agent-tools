@@ -21,7 +21,10 @@
 	import Sparkline from './Sparkline.svelte';
 
 	// Props
-	let { mode = 'badge' } = $props<{ mode?: 'badge' | 'inline' }>();
+	let { mode = 'badge', agentsProp = null } = $props<{
+		mode?: 'badge' | 'inline';
+		agentsProp?: any[] | null;
+	}>();
 
 	// Component state
 	let showDetails = $state(false);
@@ -109,7 +112,10 @@
 
 	// Calculate system-wide usage statistics
 	const systemStats = $derived(() => {
-		if (!agents || agents.length === 0) {
+		// Use agentsProp if provided (inline mode), otherwise use fetched agents (badge mode)
+		const agentData = agentsProp || agents;
+
+		if (!agentData || agentData.length === 0) {
 			return {
 				tokensToday: 0,
 				costToday: 0,
@@ -125,7 +131,7 @@
 		let costWeek = 0;
 		let activeAgents = 0;
 
-		agents.forEach(agent => {
+		agentData.forEach(agent => {
 			if (agent.active) {
 				activeAgents++;
 			}
@@ -138,12 +144,16 @@
 			}
 		});
 
+		// For inline mode, show total agent count (like old "X agents online")
+		// For badge mode, show only active agents
+		const agentCount = mode === 'inline' ? agentData.length : activeAgents;
+
 		return {
 			tokensToday,
 			costToday,
 			tokensWeek,
 			costWeek,
-			activeAgents
+			activeAgents: agentCount
 		};
 	});
 
