@@ -191,7 +191,7 @@
 
 		<!-- Right Panel: Agent Grid -->
 		<div class="flex-1 overflow-auto">
-			<AgentGrid {agents} {tasks} {allTasks} {reservations} {sparklineData} onTaskAssign={handleTaskAssign} />
+			<AgentGrid {agents} {tasks} {allTasks} {reservations} {sparklineData} onTaskAssign={handleTaskAssign} ontaskclick={handleTaskClick} />
 		</div>
 	</div>
 

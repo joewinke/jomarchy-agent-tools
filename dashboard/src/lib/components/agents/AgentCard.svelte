@@ -4,7 +4,7 @@
 	import { getTokenColorClass, HIGH_USAGE_WARNING_THRESHOLD } from '$lib/config/tokenUsageConfig';
 	import Sparkline from '$lib/components/Sparkline.svelte';
 
-	let { agent, tasks = [], allTasks = [], reservations = [], onTaskAssign = () => {}, draggedTaskId = null } = $props();
+	let { agent, tasks = [], allTasks = [], reservations = [], onTaskAssign = () => {}, ontaskclick = () => {}, draggedTaskId = null } = $props();
 
 	let isDragOver = $state(false);
 	let isAssigning = $state(false);
@@ -658,6 +658,25 @@
 
 		return diffMinutes > 5;
 	}
+
+	// Extract task ID from activity preview text
+	// Looks for pattern like "[jat-abc]" or "jat-abc" in the preview
+	function extractTaskId(preview) {
+		if (!preview) return null;
+
+		// Match task ID pattern: [project-xxx] or just project-xxx
+		const match = preview.match(/\[?([a-z0-9_-]+-[a-z0-9]{3})\]?/i);
+		return match ? match[1] : null;
+	}
+
+	// Handle activity item click
+	// If the activity contains a task ID, call the parent's ontaskclick handler
+	function handleActivityClick(activity) {
+		const taskId = extractTaskId(activity.preview);
+		if (taskId && ontaskclick) {
+			ontaskclick(taskId);
+		}
+	}
 </script>
 
 <div
@@ -717,7 +736,7 @@
 		</div>
 
 		<!-- Usage Trend Sparkline (full width) -->
-		<div class="mb-2">
+		<div class="">
 			{#if sparklineLoading && sparklineData.length === 0}
 				<!-- Placeholder line for loading -->
 				<div class="h-10 flex items-center">
@@ -739,47 +758,72 @@
 			{/if}
 		</div>
 
-		<!-- Last Seen (full width) -->
-		<div class="-mt-2">
-			<div class="flex items-center justify-between text-xs">
-			{#if agentStatus() === 'live'}
-				<div class="flex items-center gap-1 text-xs text-success mt-1">
-					<span class="inline-block w-1.5 h-1.5 bg-success rounded-full animate-pulse"></span>
-					<span class="font-semibold">Responsive now</span>
-				</div>
-			{:else if agentStatus() === 'working'}
-				<div class="text-xs text-info/70 mt-1">
-					Working on task
-				</div>
-			{/if}
-				<span class="font-medium {agentStatus() === 'live' ? 'text-success' : agentStatus() === 'working' ? 'text-info' : 'text-base-content/50'}">
-					{formatLastActivity(agent.current_activity?.ts || agent.last_active_ts)}
+		<!-- Token Usage (Today) -->
+		{#if agent.usage && !usageLoading && !usageError}
+			<div class="flex items-center justify-between text-xs mb-2 -mt-1">
+				<span class="font-mono text-base-content/70">
+					{formatTokens(agent.usage.today.total_tokens)}
+				</span>
+				<span class="font-mono font-medium {getTokenColorClass(agent.usage.today.total_tokens)}">
+					{formatCost(agent.usage.today.cost)}
 				</span>
 			</div>
-		</div>
+		{/if}
 
-		<!-- Current Task -->
-		<div class="mb-3">
-			<div class="text-xs font-medium text-base-content/70 mb-1">Current Task:</div>
-			{#if currentTask()}
-				<div class="bg-base-200 rounded p-2">
-					<div class="flex items-center gap-2 mb-1">
-						<span class="text-xs font-mono text-base-content/50">{currentTask().id}</span>
-						<div class="flex-1 w-full bg-base-300 rounded-full h-1.5">
-							<div class="bg-primary h-1.5 rounded-full transition-all" style="width: {getTaskProgress(currentTask())}%"></div>
-						</div>
-						<span class="text-xs text-base-content/50 font-medium">{getTaskProgress(currentTask())}%</span>
+		<!-- Activity & History (Unified) -->
+		{#if agent.current_activity || (agent.activities && agent.activities.length > 1)}
+			<div class="mb-3 bg-base-200 rounded px-2 py-1.5">
+				<!-- Current Activity -->
+				{#if agent.current_activity}
+					{@const taskId = extractTaskId(agent.current_activity.preview)}
+					{@const previewText = agent.current_activity.preview || agent.current_activity.content || 'Active'}
+					{@const textWithoutTaskId = taskId ? previewText.replace(/\[.*?\]\s*/, '') : previewText}
+					<div class="text-xs flex items-start gap-1.5 py-0.5">
+						<span class="inline-block w-2 h-2 bg-success rounded-full animate-pulse shrink-0 mt-0.5"></span>
+						{#if taskId}
+							<span class="font-mono text-success shrink-0 text-[10px] font-semibold">{taskId}</span>
+						{/if}
+						<span class="truncate font-semibold text-success">
+							{textWithoutTaskId}
+						</span>
 					</div>
-					<p class="text-xs text-base-content truncate" title={currentTask().title}>
-						{currentTask().title}
-					</p>
-				</div>
-			{:else}
-				<div class="bg-base-200 rounded p-2 text-center">
-					<p class="text-xs text-base-content/50 italic">Drop task here to assign</p>
-				</div>
-			{/if}
-		</div>
+				{/if}
+
+				<!-- History -->
+				{#if agent.activities && agent.activities.length > 1}
+					<div class="{agent.current_activity ? 'mt-2 pt-2 border-t border-base-300' : ''} space-y-1">
+						{#each agent.activities.slice(1) as activity}
+							{@const taskId = extractTaskId(activity.preview)}
+							{@const isClickable = taskId !== null}
+							{@const previewText = activity.preview || activity.content || activity.type}
+							{@const textWithoutTaskId = taskId ? previewText.replace(/\[.*?\]\s*/, '') : previewText}
+							<div
+								class="text-xs text-base-content/60 flex items-start gap-1.5 rounded px-1 py-0.5 {isClickable ? 'hover:bg-primary/10 cursor-pointer' : 'hover:bg-base-300 cursor-help'}"
+								title={activity.content || activity.preview}
+								onclick={isClickable ? () => handleActivityClick(activity) : undefined}
+								role={isClickable ? 'button' : undefined}
+								tabindex={isClickable ? 0 : undefined}
+							>
+								<span class="text-base-content/40 shrink-0 font-mono text-[10px]">
+									{new Date(activity.ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+								</span>
+								{#if taskId}
+									<span class="font-mono text-info shrink-0 text-[10px]">{taskId}</span>
+								{/if}
+								<span class="truncate">
+									{textWithoutTaskId}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{:else}
+			<!-- Empty state: Drop zone -->
+			<div class="mb-3 bg-base-200 rounded p-2 text-center">
+				<p class="text-xs text-base-content/50 italic">Drop task here to assign</p>
+			</div>
+		{/if}
 
 		{#if queuedTasks().length > 0}
 		<!--
@@ -931,202 +975,33 @@
 		{/if}
 
 		<!-- File Locks -->
-		<div>
-			<div class="text-xs font-medium text-base-content/70 mb-1">
-				File Locks ({agentLocks().length}):
-			</div>
-			{#if agentLocks().length > 0}
-				<div class="space-y-1">
-					{#each agentLocks().slice(0, 2) as lock}
-						<div class="bg-warning/10 rounded px-2 py-1">
-							<p class="text-xs text-warning truncate" title={lock.path_pattern}>
-								🔒 {lock.path_pattern}
-							</p>
-						</div>
-					{/each}
-					{#if agentLocks().length > 2}
-						<div class="text-xs text-base-content/50 text-center">
-							+{agentLocks().length - 2} more
-						</div>
-					{/if}
-				</div>
-			{:else}
-				<div class="bg-base-200 rounded p-2 text-center">
-					<p class="text-xs text-base-content/50 italic">No file locks</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Token Usage -->
-		<div class="mb-3">
-			<div class="flex items-center justify-between text-xs font-medium text-base-content/70 mb-1">
-				<span>Token Usage:</span>
-				{#if agent.usage && isUsageStale()}
-					<button
-						class="text-warning hover:text-warning-focus flex items-center gap-0.5"
-						onclick={retryFetchUsage}
-						title="Data is stale (>5 minutes old). Click to refresh."
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-						</svg>
-						<span class="text-[10px]">Refresh</span>
-					</button>
-				{/if}
-			</div>
-
-			{#if usageLoading}
-				<!-- Loading State: Skeleton Loader -->
-				<div class="space-y-1">
-					<div class="skeleton h-16 w-full rounded"></div>
-					<div class="skeleton h-16 w-full rounded"></div>
-				</div>
-
-			{:else if usageError}
-				<!-- Error State: Inline Error with Retry -->
-				<div class="bg-error/10 border border-error/30 rounded p-3">
-					<div class="flex items-start gap-2">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-error shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-						</svg>
-						<div class="flex-1">
-							<p class="text-xs font-medium text-error">Failed to load usage data</p>
-							<p class="text-xs text-error/70 mt-0.5">{usageError}</p>
-							{#if usageRetryCount < 3}
-								<button
-									class="btn btn-xs btn-error btn-outline mt-2"
-									onclick={retryFetchUsage}
-								>
-									Retry ({usageRetryCount}/3)
-								</button>
-							{/if}
-						</div>
+		{#if agentLocks().length > 0}
+			<div class="space-y-1 mb-3">
+				{#each agentLocks().slice(0, 2) as lock}
+					<div class="bg-warning/10 rounded px-2 py-1">
+						<p class="text-xs text-warning truncate" title={lock.path_pattern}>
+							🔒 {lock.path_pattern}
+						</p>
 					</div>
-				</div>
-
-			{:else if !agent.usage || (agent.usage.today.total_tokens === 0 && agent.usage.week.total_tokens === 0)}
-				<!-- Empty State: No Usage Data -->
-				<div class="bg-base-200 rounded p-3 text-center">
-					<p class="text-xs text-base-content/50">No usage data yet</p>
-					<p class="text-xs text-base-content/40 mt-0.5">Agent hasn't made any API calls</p>
-				</div>
-
-			{:else}
-				<!-- Success State: Show Usage Data -->
-				<!-- Today's Usage -->
-				<div class="bg-base-200 rounded px-2 py-1.5 mb-1">
-					<div class="flex items-center justify-between text-xs mb-1">
-						<span class="text-base-content/70">Today:</span>
-						<span class="font-mono font-medium {getTokenColorClass(agent.usage.today.total_tokens)}">
-							{formatTokens(agent.usage.today.total_tokens)}
-						</span>
-					</div>
-					<div class="flex items-center justify-between text-xs">
-						<span class="text-base-content/50">Cost:</span>
-						<span class="font-mono text-base-content/70">
-							{formatCost(agent.usage.today.cost)}
-						</span>
-					</div>
-					{#if agent.usage.today.total_tokens > HIGH_USAGE_WARNING_THRESHOLD}
-						<div class="mt-1 flex items-center gap-1">
-							<span class="badge badge-error badge-xs">⚠ High Usage</span>
-						</div>
-					{/if}
-				</div>
-
-				<!-- Week's Usage (only show if different from today) -->
-				{#if agent.usage.week.total_tokens !== agent.usage.today.total_tokens}
-					<div class="bg-base-200 rounded px-2 py-1.5">
-						<div class="flex items-center justify-between text-xs mb-1">
-							<span class="text-base-content/70">This Week:</span>
-							<span class="font-mono font-medium text-base-content">
-								{formatTokens(agent.usage.week.total_tokens)}
-							</span>
-						</div>
-						<div class="flex items-center justify-between text-xs">
-							<span class="text-base-content/50">Cost:</span>
-							<span class="font-mono text-base-content/70">
-								{formatCost(agent.usage.week.cost)}
-							</span>
-						</div>
-						{#if agent.usage.week.sessionCount > 0}
-							<div class="flex items-center justify-between text-xs mt-1">
-								<span class="text-base-content/50">Sessions:</span>
-								<span class="text-base-content/70">
-									{agent.usage.week.sessionCount}
-								</span>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			{/if}
-		</div>
-
-		<!-- Recent Activity (with Usage Trend) -->
-		<div class="mb-3">
-			<div class="bg-base-200 rounded px-2 py-1.5">
-				{#if agent.current_activity}
-					<!-- Show current activity from activity log -->
-					<div class="flex items-center justify-between text-xs mb-1">
-						<span class="text-base-content/70">Now:</span>
-						<span class="font-medium text-success">
-							{formatLastActivity(agent.current_activity.ts)}
-						</span>
-					</div>
-
-					<div
-						class="flex items-center gap-1 text-xs mt-1"
-						class:text-success={agentStatus() === 'live'}
-						class:text-info={agentStatus() === 'working'}
-						class:text-base-content={agentStatus() !== 'live' && agentStatus() !== 'working'}
-						title={agent.current_activity.content || agent.current_activity.preview}
-					>
-						{#if agentStatus() === 'live'}
-							<span class="inline-block w-1.5 h-1.5 bg-success rounded-full animate-pulse"></span>
-						{/if}
-						<span class="font-semibold truncate">
-							{agent.current_activity.preview || agent.current_activity.content || 'Active'}
-						</span>
-					</div>
-				{/if}
-
-				<!-- History Toggle Button -->
-				{#if agent.activities && agent.activities.length > 1}
-					<div class="mt-2 pt-1 border-t border-base-300">
-						<button
-							class="text-xs text-primary hover:text-primary-focus w-full text-left"
-							onclick={() => showActivityHistory = !showActivityHistory}
-						>
-							{showActivityHistory ? '▼' : '▶'} History
-						</button>
-					</div>
-				{/if}
-
-				<!-- Activity History (expandable) -->
-				{#if showActivityHistory && agent.activities && agent.activities.length > 1}
-					<div class="mt-2 pt-2 border-t border-base-300 space-y-1">
-						{#each agent.activities.slice(1) as activity}
-							<div
-								class="text-xs text-base-content/60 flex items-start gap-1 hover:bg-base-300 rounded px-1 py-0.5 cursor-help"
-								title={activity.content || activity.preview}
-							>
-								<span class="text-base-content/40 shrink-0">
-									{new Date(activity.ts).toLocaleTimeString()}
-								</span>
-								<span class="truncate">
-									{activity.preview || activity.content || activity.type}
-								</span>
-							</div>
-						{/each}
+				{/each}
+				{#if agentLocks().length > 2}
+					<div class="text-xs text-base-content/50 text-center">
+						+{agentLocks().length - 2} more
 					</div>
 				{/if}
 			</div>
-		</div>
-		<!-- Model info -->
-		<p class="text-xs text-base-content/50 font-mono ">
-			{agent.model || 'unknown'}
-		</p>
+		{/if}
 
+		<!-- Last Seen & Model Info -->
+		<div class="flex items-center justify-between text-xs">
+			<span class="font-medium {agentStatus() === 'live' ? 'text-success' : agentStatus() === 'working' ? 'text-info' : 'text-base-content/50'}">
+				{formatLastActivity(agent.current_activity?.ts || agent.last_active_ts)}
+			</span>
+			<span class="text-base-content/50 font-mono truncate ml-1 text-xxs">
+				{agent.program || 'unknown'}
+				<!-- {agent.model || 'unknown'} -->
+			</span>
+		</div>
 
 	</div>
 </div>
