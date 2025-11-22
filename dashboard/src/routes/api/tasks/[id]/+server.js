@@ -307,9 +307,10 @@ export async function DELETE({ params }) {
 			);
 		}
 
-		// Close the task using bd close command
+		// Close the task using bd close command in the correct project directory
 		// Note: We use "close" rather than "delete" to preserve task history
-		const command = `bd close ${taskId} --reason "Deleted via dashboard"`;
+		const projectPath = existingTask.project_path;
+		const command = `cd "${projectPath}" && bd close ${taskId} --reason "Deleted via dashboard"`;
 		const { stdout, stderr } = await execAsync(command);
 
 		// Check for errors in stderr
