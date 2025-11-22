@@ -266,7 +266,7 @@
 			</div>
 		{:else}
 			<!-- Responsive Grid -->
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
 				{#each sortedAgents() as agent (agent.id || agent.name)}
 					<AgentCard {agent} {tasks} {allTasks} {reservations} {onTaskAssign} {ontaskclick} />
 				{/each}
