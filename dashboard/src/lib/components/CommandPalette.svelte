@@ -43,11 +43,44 @@
 		{
 			id: 'nav-home',
 			label: 'Go to Home',
-			description: 'View all tasks in list or graph mode',
+			description: 'View all tasks in list mode',
 			icon: '🏠',
 			keywords: ['home', 'dashboard', 'tasks', 'list'],
 			execute: () => {
 				goto('/');
+				close();
+			}
+		},
+		{
+			id: 'nav-graph',
+			label: 'Go to Graph',
+			description: 'View task dependency graph and relationships',
+			icon: '🔗',
+			keywords: ['graph', 'dependency', 'relationships', 'deps'],
+			execute: () => {
+				goto('/graph');
+				close();
+			}
+		},
+		{
+			id: 'nav-timeline',
+			label: 'Go to Timeline',
+			description: 'View task timeline and history',
+			icon: '📅',
+			keywords: ['timeline', 'history', 'chronological', 'time'],
+			execute: () => {
+				goto('/timeline');
+				close();
+			}
+		},
+		{
+			id: 'nav-kanban',
+			label: 'Go to Kanban',
+			description: 'View tasks in kanban board format',
+			icon: '📋',
+			keywords: ['kanban', 'board', 'columns', 'workflow'],
+			execute: () => {
+				goto('/kanban');
 				close();
 			}
 		},
@@ -59,17 +92,6 @@
 			keywords: ['agents', 'team', 'coordination', 'assign'],
 			execute: () => {
 				goto('/agents');
-				close();
-			}
-		},
-		{
-			id: 'nav-api-demo',
-			label: 'Go to API Demo',
-			description: 'Interactive API testing and exploration',
-			icon: '🔌',
-			keywords: ['api', 'demo', 'test', 'endpoints'],
-			execute: () => {
-				goto('/api-demo');
 				close();
 			}
 		},
