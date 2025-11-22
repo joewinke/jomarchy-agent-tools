@@ -35,9 +35,9 @@ export const unifiedNavConfig: UnifiedNavConfig = {
 			icon: 'list'
 		},
 		{
-			id: 'dependency',
-			label: 'Dependency',
-			href: '/dependency',
+			id: 'graph',
+			label: 'Graph',
+			href: '/graph',
 			icon: 'graph'
 		},
 		{
