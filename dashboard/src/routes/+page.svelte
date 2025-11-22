@@ -2,13 +2,11 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import TaskList from '$lib/components/TaskList.svelte';
-	import DependencyGraph from '$lib/components/DependencyGraph.svelte';
 	import TaskDetailDrawer from '$lib/components/TaskDetailDrawer.svelte';
 
 	let selectedPriority = $state('all');
 	let selectedStatus = $state('all');
 	let searchQuery = $state('');
-	let viewMode = $state<'list' | 'graph'>('list');
 	let tasks = $state<any[]>([]);
 	let allTasks = $state<any[]>([]);
 	let selectedTaskId = $state<string | null>(null);
@@ -36,13 +34,6 @@
 		const response = await fetch(`/api/tasks?${params}`);
 		const data = await response.json();
 		allTasks = data.tasks || [];
-	}
-
-	// Handle node click in graph
-	function handleNodeClick(taskId: string) {
-		selectedTaskId = taskId;
-		drawerMode = 'view';
-		drawerOpen = true;
 	}
 
 	// Refetch tasks when filters change
@@ -103,17 +94,11 @@
 		</div>
 	</div>
 
-	{#if viewMode === 'list'}
-		<TaskList
-			bind:selectedPriority
-			bind:selectedStatus
-			bind:searchQuery
-		/>
-	{:else}
-		<div class="p-4">
-			<DependencyGraph {tasks} onNodeClick={handleNodeClick} />
-		</div>
-	{/if}
+	<TaskList
+		bind:selectedPriority
+		bind:selectedStatus
+		bind:searchQuery
+	/>
 
 	<!-- Task Detail Modal -->
 	<TaskDetailDrawer bind:taskId={selectedTaskId} bind:mode={drawerMode} bind:isOpen={drawerOpen} />
