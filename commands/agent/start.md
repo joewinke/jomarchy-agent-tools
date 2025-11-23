@@ -7,13 +7,14 @@ Get to work! Unified smart command that handles registration, task selection, co
 # Start Working - Unified Smart Command
 
 **Usage:**
-- `/agent:start` - Auto-detect/create agent, show task recommendations
+- `/agent:start` - **Auto-create new agent** (fast! no prompt), show task recommendations
+- `/agent:start resume` - Show menu to **choose from existing agents**
 - `/agent:start agent-name` - Register as specific agent, show tasks
 - `/agent:start task-id` - Auto-register if needed, start that task
 - `/agent:start task-id quick` - Skip conflict checks (fast mode)
 
 **What this command does:**
-1. **Smart Registration:** Categorizes existing agents by state (working/active/idle/offline) and offers resumption
+1. **Smart Registration:** By default creates new agent instantly; use `resume` parameter to choose from existing agents
 2. **Global Agent Lookup:** Agents are globally unique - uses simple `am-agents` lookup (no project filtering needed)
 3. **Duplicate Prevention:** Always checks if agent name exists before registering (resumes instead of creating duplicates)
 4. **Session Persistence:** Updates `.claude/agent-{session_id}.txt` for statusline
@@ -108,24 +109,33 @@ SESSION_ID="abc" && if [[ -f "$file" ]]; then echo "yes"; fi
 Extract parameter and detect mode:
 
 ```bash
-PARAM="$1"  # Could be: empty, agent-name, task-id, or "quick"
+PARAM="$1"  # Could be: empty, "resume", agent-name, task-id, or "quick"
 QUICK_MODE=false
+RESUME_MODE=false
+
+# Check for resume mode
+if [[ "$PARAM" == "resume" ]]; then
+  RESUME_MODE=true
+  PARAM_TYPE="none"  # Will show task recommendations after agent selection
+fi
 
 # Check for quick mode
 if [[ "$PARAM" == "quick" ]] || [[ "$2" == "quick" ]]; then
   QUICK_MODE=true
 fi
 
-# Determine parameter type
-if [[ -z "$PARAM" ]] || [[ "$PARAM" == "quick" ]]; then
-  PARAM_TYPE="none"
-elif bd show "$PARAM" --json >/dev/null 2>&1; then
-  PARAM_TYPE="task-id"
-  TASK_ID="$PARAM"
-else
-  # Could be agent name
-  PARAM_TYPE="agent-name"
-  REQUESTED_AGENT="$PARAM"
+# Determine parameter type (skip if already set to resume)
+if [[ "$RESUME_MODE" == "false" ]]; then
+  if [[ -z "$PARAM" ]] || [[ "$PARAM" == "quick" ]]; then
+    PARAM_TYPE="none"
+  elif bd show "$PARAM" --json >/dev/null 2>&1; then
+    PARAM_TYPE="task-id"
+    TASK_ID="$PARAM"
+  else
+    # Could be agent name
+    PARAM_TYPE="agent-name"
+    REQUESTED_AGENT="$PARAM"
+  fi
 fi
 ```
 
@@ -249,66 +259,125 @@ echo "✅ Resuming as $AGENT_NAME (session agent)"
 
 **If AGENT_REGISTERED == false AND no agent requested:**
 ```bash
-# List existing agents globally (simple, fast - no project filtering)
-am-agents
-# Output shows all registered agents across all projects
+# Check if user wants to resume existing agent or auto-create new (default)
+if [[ "$RESUME_MODE" == "true" ]]; then
+  # RESUME MODE: Show menu to choose from LOGGED OUT agents only
+  # (Agents without active session files)
 
-# Count agents globally
-AGENT_COUNT=$(am-agents --json | jq 'length')
+  # Get all registered agents
+  ALL_AGENTS=$(am-agents --json)
 
-if [[ "$AGENT_COUNT" -gt 0 ]]; then
-  # Found existing agents - offer resume or create new
+  # Filter out agents that are currently logged in (have active session files)
+  # An agent is "logged in" if .claude/agent-*.txt contains their name
+  LOGGED_OUT_AGENTS=$(echo "$ALL_AGENTS" | jq -r '
+    [.[] |
+      select(
+        # Check if any session file contains this agent name
+        # This requires bash grep check - we filter in next step
+        .name as $agent_name | $agent_name
+      )
+    ]
+  ')
 
-  echo "╔══════════════════════════════════════════════════════════════════════════╗"
-  echo "║                    🔍 Found $AGENT_COUNT Existing Agent(s)                  ║"
-  echo "╚══════════════════════════════════════════════════════════════════════════╝"
-  echo ""
+  # Filter out actively logged in agents using bash
+  AVAILABLE_AGENTS=""
+  while IFS= read -r agent_name; do
+    # Check if this agent has an active session file
+    if ! grep -q "^${agent_name}$" .claude/agent-*.txt 2>/dev/null; then
+      # Agent is NOT logged in - add to available list
+      AVAILABLE_AGENTS="${AVAILABLE_AGENTS}${agent_name}\n"
+    fi
+  done < <(echo "$ALL_AGENTS" | jq -r '.[].name')
 
-  # Get agent list with human-readable time (uses UTC→local conversion)
-  echo "Available agents:"
-  am-agents --json | jq -r '.[] | "  • \(.name) (last active: \(.last_active_ago // "never"))"'
-  echo ""
-  echo "💡 Tip: Agents shown as 'just now' may be active in another session."
-  echo ""
+  # Count available (logged out) agents
+  AGENT_COUNT=$(echo -e "$AVAILABLE_AGENTS" | grep -v '^$' | wc -l)
 
-  # Use AskUserQuestion to let user choose:
-  # Option 1: "Create new agent" → Fresh identity (DEFAULT - recommended)
-  # Option 2: "Resume [AgentName]" → Use existing agent (only if not active elsewhere)
-  #
-  # If user picks "Resume" and agent IS active elsewhere:
-  #   Show error: "Agent [name] is already active in session [id]. Please choose a different option."
-  #   Ask again.
+  if [[ "$AGENT_COUNT" -gt 0 ]]; then
+    # Found logged-out agents - show selection menu
 
+    echo "╔══════════════════════════════════════════════════════════════════════════╗"
+    echo "║             🔍 Found $AGENT_COUNT Available Agent(s) (Logged Out)          ║"
+    echo "╚══════════════════════════════════════════════════════════════════════════╝"
+    echo ""
+
+    # Show only logged-out agents
+    echo "Available agents (not currently logged in):"
+    echo -e "$AVAILABLE_AGENTS" | grep -v '^$' | while read agent_name; do
+      # Get last active time for this agent
+      last_active=$(echo "$ALL_AGENTS" | jq -r --arg name "$agent_name" \
+        '.[] | select(.name == $name) | .last_active_ago // "never"')
+      echo "  • $agent_name (last active: $last_active)"
+    done
+    echo ""
+
+    # Use AskUserQuestion to let user choose:
+    # Option 1: "Create new agent" → Fresh identity
+    # Option 2: "Resume [AgentName]" → Use existing logged-out agent
+
+  else
+    # No logged-out agents available - all are currently active
+    TOTAL_AGENTS=$(echo "$ALL_AGENTS" | jq 'length')
+
+    echo "╔══════════════════════════════════════════════════════════════════════════╗"
+    echo "║              ℹ️  All Agents Currently Logged In ($TOTAL_AGENTS total)        ║"
+    echo "╚══════════════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "All registered agents are currently active in other sessions."
+    echo ""
+    echo "Options:"
+    echo "  1. Create new agent (recommended)"
+    echo "  2. Close other terminal to free up an agent"
+    echo ""
+
+    # Auto-create new agent
+    echo "Creating new agent identity..."
+
+    # Register new agent
+    am-register --program claude-code --model sonnet-4.5
+    # → Output shows agent name
+
+    # Extract agent name from output
+    # Example output: "✓ ✨ Created new agent: RichPrairie"
+    # Parse the agent name and use it
+  fi
 else
-  # No existing agents - auto-create
+  # DEFAULT MODE: Auto-create new agent (FAST - no prompt!)
   echo "╔══════════════════════════════════════════════════════════════════════════╗"
-  echo "║                    🌟 Starting Fresh Session                             ║"
+  echo "║                    ✨ Creating New Agent Session                         ║"
   echo "╚══════════════════════════════════════════════════════════════════════════╝"
   echo ""
-  echo "No existing agents found. Creating new agent identity..."
 
-  # Register new agent
+  # Register new agent immediately (no questions asked)
   am-register --program claude-code --model sonnet-4.5
   # → Output shows agent name
 
   # Extract agent name from output
   # Example output: "✓ ✨ Created new agent: RichPrairie"
   # Parse the agent name and use it
+
+  echo ""
+  echo "💡 Tip: Use '/agent:start resume' to choose from existing agents"
 fi
 
-# After user chooses agent name, continue to session file writing...
+# After agent selection/creation, continue to session file writing...
 ```
 
 **Key Decision Points:**
 
-When existing agents are found:
-1. **Recommend "Create new agent"** (simplest, no conflicts)
-2. If user wants to resume existing agent:
-   - Check if it's ACTIVELY working: `~/code/jat/scripts/check-agent-active AgentName 10`
-   - If actively working (session file < 10 min old): show error, ask them to choose different option
-   - If not actively working (no session file or file > 10 min old): OK to proceed
+**Default behavior (no `resume` parameter):**
+- Always auto-creates new agent immediately
+- Fast! No prompts or menu
+- Fresh identity every time
+- Use this 99% of the time
 
-**Note:** A session file older than 10 minutes is considered INACTIVE (agent probably crashed or terminal closed without cleanup)
+**Resume mode (`/agent:start resume`):**
+- Shows menu of ONLY logged-out agents (agents without active session files)
+- Filters out agents currently logged in (have `.claude/agent-*.txt` files)
+- User chooses which logged-out agent to resume or create new
+- If all agents are logged in: auto-creates new agent
+- Clean separation: can't accidentally log in as same agent in two terminals
+
+**Note:** An agent is "logged in" if any `.claude/agent-*.txt` file contains their name
 
 **CRITICAL: Check for duplicate active agents and write to session file:**
 
@@ -764,13 +833,16 @@ When `TASK_MODE=bulk` is detected:
 
 | Command | Behavior |
 |---------|----------|
-| `/agent:start` | Auto-detect/create agent → **show** task recommendations (no auto-start) |
-| `/agent:start MyAgent` | Register as MyAgent → **show** task recommendations (no auto-start) |
-| `/agent:start task-abc` | Auto-register if needed → **actually start** task-abc (full flow) |
-| `/agent:start task-abc quick` | Auto-register → **actually start** task-abc (skip conflict checks) |
+| `/agent:start` | **Auto-create new agent** (fast!) → show task recommendations (no auto-start) |
+| `/agent:start resume` | Show menu to **choose from existing agents** → show task recommendations |
+| `/agent:start MyAgent` | Register as MyAgent → show task recommendations (no auto-start) |
+| `/agent:start task-abc` | Auto-create agent if needed → **actually start** task-abc (full flow) |
+| `/agent:start task-abc quick` | Auto-create agent → **actually start** task-abc (skip conflict checks) |
 
-**Key distinction:**
-- **Without task-id**: Shows recommendations, exits, waits for user to choose
+**Key distinctions:**
+- **Default (no param)**: Auto-creates new agent immediately (FAST!)
+- **With `resume`**: Shows menu to choose existing agents (when you want to resume)
+- **Without task-id**: Shows task recommendations, exits, waits for user to choose
 - **With task-id**: Actually starts work (reserves files, updates Beads, sends mail)
 
 ---
@@ -877,6 +949,5 @@ SESSION_ID=$(cat /tmp/claude-session-${PPID}.txt | tr -d '\n')  # BROKEN
 | `/agent:start` | "Show me what to work on" - registration + show recommendations (no auto-start) |
 | `/agent:start MyAgent` | "Register as specific agent" - explicit identity + show recommendations |
 | `/agent:start task-abc` | "Start this specific task NOW" - direct task start (full flow) |
-| `/agent:register` | "Show me all agents" - explicit registration with full review (no tasks shown) |
 | `/agent:complete` | "I'm done with this task" - complete and release |
 | `/agent:status` | "What am I working on?" - current status check |

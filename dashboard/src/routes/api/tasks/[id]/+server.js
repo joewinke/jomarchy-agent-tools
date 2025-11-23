@@ -28,6 +28,12 @@ export async function PUT({ params, request }) {
 	const updates = await request.json();
 
 	try {
+		// Get existing task to find project path
+		const existingTask = getTaskById(taskId);
+		if (!existingTask) {
+			return json({ error: 'Task not found' }, { status: 404 });
+		}
+
 		// Build bd update command
 		const args = [];
 
@@ -51,9 +57,10 @@ export async function PUT({ params, request }) {
 			args.push(`--status ${updates.status}`);
 		}
 
-		// Execute bd update command
+		// Execute bd update command in correct project directory
 		if (args.length > 0) {
-			const command = `bd update ${taskId} ${args.join(' ')}`;
+			const projectPath = existingTask.project_path;
+			const command = `cd "${projectPath}" && bd update ${taskId} ${args.join(' ')}`;
 			const { stdout, stderr } = await execAsync(command);
 
 			if (stderr && !stderr.includes('✓')) {
@@ -192,7 +199,8 @@ export async function PATCH({ params, request }) {
 
 		// Execute bd update command (only if we have args)
 		if (args.length > 0) {
-			const command = `bd update ${taskId} ${args.join(' ')}`;
+			const projectPath = existingTask.project_path;
+			const command = `cd "${projectPath}" && bd update ${taskId} ${args.join(' ')}`;
 			const { stdout, stderr } = await execAsync(command);
 
 			// Check for errors in stderr (bd CLI uses stderr for some output)
@@ -225,7 +233,8 @@ export async function PATCH({ params, request }) {
 			// Add new dependencies
 			for (const depId of depsToAdd) {
 				try {
-					const addDepCommand = `bd dep add ${taskId} ${depId}`;
+					const projectPath = existingTask.project_path;
+					const addDepCommand = `cd "${projectPath}" && bd dep add ${taskId} ${depId}`;
 					await execAsync(addDepCommand);
 				} catch (err) {
 					console.error(`Failed to add dependency ${depId}:`, err.message);
@@ -236,7 +245,8 @@ export async function PATCH({ params, request }) {
 			// Remove old dependencies
 			for (const depId of depsToRemove) {
 				try {
-					const removeDepCommand = `bd dep remove ${taskId} ${depId}`;
+					const projectPath = existingTask.project_path;
+					const removeDepCommand = `cd "${projectPath}" && bd dep remove ${taskId} ${depId}`;
 					await execAsync(removeDepCommand);
 				} catch (err) {
 					console.error(`Failed to remove dependency ${depId}:`, err.message);

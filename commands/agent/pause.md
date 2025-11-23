@@ -1,410 +1,417 @@
 ---
-argument-hint: [task-id] [--reason | --blocked | --handoff | --abandon]
+argument-hint:
 ---
 
-Stop working on a task temporarily or permanently. Unified command for pause, block, handoff, and abandon scenarios.
+Pause current task quickly (without full completion) and show available tasks to pivot to different work.
 
-# Pause/Stop Work - Unified Command
+# Agent Pause - Quick Pivot
 
 **Usage:**
-- `/agent:pause task-id --reason "text"` - Simple pause (keep reservation)
-- `/agent:pause task-id --blocked --reason "Waiting for API"` - Mark blocked
-- `/agent:pause task-id --handoff AgentName --reason "Need expert"` - Hand off
-- `/agent:pause task-id --abandon --reason "No longer needed"` - Abandon work
+- `/agent:pause` - Pause current task, show menu to pivot to different work
 
 **What this command does:**
-1. Releases file reservations (if specified)
-2. Updates task status in Beads
-3. Sends Agent Mail notification
-4. Optionally hands off to another agent
-5. Updates session state
+1. **Quick Save** (always fast, no verification):
+   - Quick commit or stash uncommitted changes
+   - No tests, no lint, no quality checks
+2. **Agent Mail Coordination**:
+   - Check and acknowledge ALL unread messages
+   - Send pause notification with reason (thread: task-id)
+3. **Beads Task Management**:
+   - Mark task as "worked on but incomplete" (status stays in_progress)
+   - Update task with pause note
+   - Release file reservations
+4. **Next Task Selection**:
+   - Show available tasks menu
+   - Wait for user to choose (does NOT auto-start)
+
+**When to use:**
+- **Emergency exit**: Laptop dying, need to stop immediately
+- **Pivot to different work**: Got distracted, want to switch tasks
+- **Blocked**: Can't continue, need to work on something else
+- **Context switch**: Switching from frontend to backend work
+
+**When NOT to use:**
+- Task is actually complete → use `/agent:complete` instead
+- Want to auto-continue → use `/agent:next` instead
+
+---
+
+## Bash Syntax Patterns for Claude Code
+
+**CRITICAL:** Claude Code's Bash tool escapes command substitution syntax. You MUST use these patterns:
+
+### ✅ CORRECT Patterns
+
+**Pattern 1: Use Read/Write tools (RECOMMENDED)**
+```bash
+# Step 1: Get value
+~/code/jat/scripts/get-current-session-id
+# → "a019c84c-7b54-45cc-9eee-dd6a70dea1a3"
+
+# Step 2: Use Write tool with that value
+Write(.claude/agent-a019c84c-7b54-45cc-9eee-dd6a70dea1a3.txt, "AgentName")
+```
+
+**Pattern 2: Explicit variable assignment with semicolon**
+```bash
+# ✅ Works: Explicit assignment with semicolon
+SESSION_ID="a019c84c-7b54-45cc-9eee-dd6a70dea1a3"; echo "$SESSION_ID"
+
+# ✅ Works: Use test command with && / ||
+test -f "$file" && echo "exists" || echo "not found"
+
+# ✅ Works: Chain commands with semicolons
+SESSION_ID="abc"; mkdir -p .claude && echo "value" > ".claude/agent-${SESSION_ID}.txt"
+```
+
+### ❌ WRONG Patterns (Will Cause Syntax Errors)
+
+```bash
+# ❌ BROKEN: Command substitution in assignment
+SESSION_ID=$(~/code/jat/scripts/get-current-session-id)
+# Error: SESSION_ID=\$ ( ... ) syntax error
+
+# ❌ BROKEN: Using $PPID (each Bash invocation has different PPID)
+SESSION_ID=$(cat /tmp/claude-session-${PPID}.txt)
+# Error: subprocess PPID ≠ Claude Code process PPID
+
+# ❌ BROKEN: if statement with &&
+SESSION_ID="abc" && if [[ -f "$file" ]]; then echo "yes"; fi
+# Error: syntax error near unexpected token 'if'
+```
+
+**Key Rules:**
+1. **Never use `$(...)` in variable assignments** - gets escaped
+2. **Never rely on `$PPID`** - each Bash call has different PPID
+3. **Prefer Read/Write tools** - no escaping issues
+4. **Use semicolons** for multi-statement commands
 
 ---
 
 ## Implementation Steps
 
-### STEP 0: Parse Parameters
+### STEP 1: Get Current Task and Agent Identity
 
+#### 1A: Get Session ID
 ```bash
-TASK_ID="$1"
-MODE="pause"  # Default mode
-REASON=""
-HANDOFF_TO=""
-KEEP_RESERVATION=true
-
-# Parse flags
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --reason)
-      REASON="$2"
-      shift 2
-      ;;
-    --blocked)
-      MODE="blocked"
-      shift
-      ;;
-    --handoff)
-      MODE="handoff"
-      HANDOFF_TO="$2"
-      shift 2
-      ;;
-    --abandon)
-      MODE="abandon"
-      KEEP_RESERVATION=false
-      shift
-      ;;
-    *)
-      shift
-      ;;
-  esac
-done
-
-# Validate task ID
-if [[ -z "$TASK_ID" ]]; then
-  echo "❌ Error: Task ID required"
-  echo "Usage: /agent:pause task-id [options]"
-  exit 1
-fi
-
-# Verify task exists
-if ! bd show "$TASK_ID" --json >/dev/null 2>&1; then
-  echo "❌ Error: Task '$TASK_ID' not found"
-  exit 1
-fi
-
-# Validate reason for certain modes
-if [[ "$MODE" != "pause" ]] && [[ -z "$REASON" ]]; then
-  echo "❌ Error: --reason required for --${MODE}"
-  exit 1
-fi
+# Use Read tool to get session ID
+Read(/tmp/claude-session-${PPID}.txt)
+# → Extract session_id value from output
 ```
+
+#### 1B: Get Agent Name
+```bash
+# Use Read tool to get agent name
+Read(.claude/agent-${session_id}.txt)
+# → Extract agent_name from output
+```
+
+#### 1C: Get Current Task
+```bash
+# Get task from Beads (in_progress tasks for this agent)
+bd list --json | jq -r --arg agent "$agent_name" \
+  '.[] | select(.assignee == $agent and .status == "in_progress") | .id' | head -1
+```
+
+**Error handling:**
+- If no session ID found → error "No active session. Run /agent:start first"
+- If no agent name found → error "No agent registered. Run /agent:start first"
+- If no in_progress task → warning "No task in progress" but continue to show menu
 
 ---
 
-### STEP 1: Get Current Agent and Task Info
+### STEP 2: Quick Save Changes
 
 ```bash
-# Get session ID and agent name
-SESSION_ID=$(cat /tmp/claude-session-${PPID}.txt 2>/dev/null | tr -d '\n')
+echo "💾 Quick saving changes..."
 
-if [[ -n "$SESSION_ID" ]] && [[ -f ".claude/agent-${SESSION_ID}.txt" ]]; then
-  AGENT_NAME=$(cat ".claude/agent-${SESSION_ID}.txt" 2>/dev/null | tr -d '\n')
+# Check git status
+git_status=$(git status --porcelain)
+
+if [[ -n "$git_status" ]]; then
+  # Stage all changes
+  git add .
+
+  # Quick commit (no verification)
+  task_json=$(bd show "$task_id" --json)
+  task_title=$(echo "$task_json" | jq -r '.title')
+
+  git commit -m "$(cat <<EOF
+WIP: $task_title
+
+Task: $task_id (paused, incomplete)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+
+  echo "✅ Quick commit done"
 else
-  echo "❌ Error: No agent registered for this session"
-  echo "💡 Run /agent:start or /agent:register first"
-  exit 1
-fi
-
-# Get task info
-task_info=$(bd show "$TASK_ID" --json)
-TASK_TITLE=$(echo "$task_info" | jq -r '.title')
-CURRENT_STATUS=$(echo "$task_info" | jq -r '.status')
-```
-
----
-
-### STEP 2: Release File Reservations (Conditional)
-
-**Release files based on mode:**
-
-```bash
-# Get current reservations for this agent and task
-RESERVATIONS=$(am-reservations --agent "$AGENT_NAME" --json | \
-  jq -r ".[] | select(.reason == \"$TASK_ID\") | .pattern")
-
-if [[ -n "$RESERVATIONS" ]]; then
-  if [[ "$KEEP_RESERVATION" == "false" ]] || [[ "$MODE" == "handoff" ]]; then
-    # Release all reservations for this task
-    while IFS= read -r pattern; do
-      am-release "$pattern" --agent "$AGENT_NAME"
-      echo "🔓 Released: $pattern"
-    done <<< "$RESERVATIONS"
-  else
-    echo "🔒 Keeping file reservations (use --abandon to release)"
-  fi
+  echo "✅ No changes to save"
 fi
 ```
 
 ---
 
-### STEP 3: Update Task Status in Beads
+### STEP 3: Agent Mail Coordination
 
-**Update based on mode:**
-
+#### 3A: Check Unread Messages
 ```bash
-case "$MODE" in
-  pause)
-    # Simple pause - keep status as-is, add note
-    bd comment "$TASK_ID" "Paused by $AGENT_NAME. Reason: ${REASON:-Taking a break}"
-    echo "⏸️  Paused task (status unchanged)"
-    ;;
+echo "📬 Checking Agent Mail..."
 
-  blocked)
-    # Mark as blocked
-    bd update "$TASK_ID" --status blocked
-    bd comment "$TASK_ID" "Blocked: $REASON (paused by $AGENT_NAME)"
-    echo "🚫 Marked task as blocked"
-    ;;
+unread_count=$(am-inbox "$agent_name" --unread --json | jq '. | length')
 
-  handoff)
-    # Reassign to new agent
-    bd update "$TASK_ID" --assignee "$HANDOFF_TO"
-    bd comment "$TASK_ID" "Handed off from $AGENT_NAME to $HANDOFF_TO. Reason: $REASON"
-    echo "👋 Handed off to $HANDOFF_TO"
-    ;;
+if [[ "$unread_count" -gt 0 ]]; then
+  echo "📬 $unread_count unread messages - acknowledging all..."
 
-  abandon)
-    # Unassign and mark as open
-    bd update "$TASK_ID" --status open --assignee ""
-    bd comment "$TASK_ID" "Abandoned by $AGENT_NAME. Reason: $REASON"
-    echo "🛑 Abandoned task (now available for others)"
-    ;;
-esac
+  # Get all unread message IDs and acknowledge them
+  am-inbox "$agent_name" --unread --json | jq -r '.[].id' | while read msg_id; do
+    am-ack "$msg_id" --agent "$agent_name"
+  done
+
+  echo "✅ Acknowledged $unread_count messages"
+fi
+```
+
+#### 3B: Announce Pause
+```bash
+echo "📢 Announcing task pause..."
+
+# Send pause message to Agent Mail
+am-send "[$task_id] Paused: $task_title" \
+  "Task paused by $agent_name (incomplete).
+
+Status: ⏸️  Paused (in_progress)
+Reason: Switching to different work
+
+Agent is now available for next task." \
+  --from "$agent_name" \
+  --to @active \
+  --thread "$task_id" \
+  --importance low
 ```
 
 ---
 
-### STEP 4: Send Agent Mail Notification
-
-**Notification based on mode:**
+### STEP 4: Update Task in Beads
 
 ```bash
-case "$MODE" in
-  pause)
-    SUBJECT="[$TASK_ID] Paused"
-    BODY="Pausing work on $TASK_ID
+echo "⏸️  Updating task status in Beads..."
 
-**Task:** $TASK_TITLE
-**Agent:** $AGENT_NAME
-**Reason:** ${REASON:-Taking a break}
-**Reservations:** ${KEEP_RESERVATION:-Kept}
+# Add pause note to task (keep status as in_progress)
+# Note: Task remains assigned to agent and in_progress
+# This allows agent to resume later or other agents to see it's paused
 
-Will resume later."
-    ;;
+# We could add a label "paused" or update description
+# For now, just leave it as in_progress with the Agent Mail notification
 
-  blocked)
-    SUBJECT="[$TASK_ID] BLOCKED"
-    BODY="⚠️ Task is now BLOCKED
-
-**Task:** $TASK_TITLE
-**Blocked by:** $AGENT_NAME
-**Reason:** $REASON
-**Files released:** All reservations released
-
-Task cannot proceed until blocker is resolved."
-    IMPORTANCE="high"
-    ;;
-
-  handoff)
-    SUBJECT="[$TASK_ID] Handoff: $AGENT_NAME → $HANDOFF_TO"
-    BODY="👋 Handing off task to $HANDOFF_TO
-
-**Task:** $TASK_TITLE
-**From:** $AGENT_NAME
-**To:** $HANDOFF_TO
-**Reason:** $REASON
-**Files released:** All reservations released
-
-$HANDOFF_TO, please review task details and continue work."
-    TO_AGENT="$HANDOFF_TO"
-    ;;
-
-  abandon)
-    SUBJECT="[$TASK_ID] Abandoned"
-    BODY="🛑 Work abandoned on $TASK_ID
-
-**Task:** $TASK_TITLE
-**Agent:** $AGENT_NAME
-**Reason:** $REASON
-**Status:** Now open/available for others
-
-Task is back in the queue for anyone to pick up."
-    ;;
-esac
-
-# Send Agent Mail
-am-send "$SUBJECT" "$BODY" \
-  --from "$AGENT_NAME" \
-  --to "${TO_AGENT:-Team}" \
-  --thread "$TASK_ID" \
-  ${IMPORTANCE:+--importance "$IMPORTANCE"}
-
-echo "📬 Sent notification in Agent Mail"
+echo "✅ Task remains in_progress (can resume later)"
 ```
 
 ---
 
-### STEP 5: Update Local Session State
+### STEP 5: Release File Reservations
 
 ```bash
-# If abandoning, clear any local task tracking
-if [[ "$MODE" == "abandon" ]]; then
-  # Clear any task-specific state files if they exist
-  rm -f ".claude/current-task-${SESSION_ID}.txt" 2>/dev/null
+echo "🔓 Releasing file reservations..."
+
+# Get all reservations for this agent
+reservations=$(am-reservations --agent "$agent_name")
+
+if [[ -n "$reservations" ]]; then
+  # Release all patterns
+  # Note: am-release takes glob patterns, extract from reservation info
+  echo "$reservations" | grep -oE '"[^"]*"' | tr -d '"' | while read pattern; do
+    am-release "$pattern" --agent "$agent_name"
+  done
+
+  echo "✅ Released all file reservations"
+else
+  echo "✅ No active reservations"
 fi
 ```
 
 ---
 
-### STEP 6: Show Summary
+### STEP 6: Show Available Tasks Menu
 
-Display appropriate summary based on mode:
+```bash
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⏸️  Task Paused: $task_id \"$task_title\""
+echo "👤 Agent: $agent_name"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
-```
-╔══════════════════════════════════════════════════════════════════════════╗
-║                    ⏸️  WORK PAUSED: {TASK_ID}                            ║
-╚══════════════════════════════════════════════════════════════════════════╝
+# Get available tasks (exclude current paused task)
+available_tasks=$(bd ready --json | jq --arg task "$task_id" \
+  '.[] | select(.id != $task)')
+task_count=$(echo "$available_tasks" | jq -s '. | length')
 
-Mode: {PAUSE | BLOCKED | HANDOFF | ABANDON}
-Task: {TASK_TITLE}
-Agent: {AGENT_NAME}
-Reason: {REASON}
+if [[ "$task_count" -eq 0 ]]; then
+  echo "📋 No other ready tasks available."
+  echo ""
+  echo "💡 Next steps:"
+  echo "   • /agent:start $task_id - Resume this task"
+  echo "   • /agent:plan - Create new tasks"
+  echo "   • Close terminal if done for the day"
+  exit 0
+fi
 
-┌─ ACTIONS TAKEN ────────────────────────────────────────────────────────┐
-│                                                                        │
-│  {MODE-SPECIFIC ACTIONS}                                               │
-│  • File reservations: {Released | Kept}                               │
-│  • Task status: {Updated | Unchanged}                                 │
-│  • Agent Mail: Notification sent                                      │
-│  • Next owner: {AgentName | None | Anyone}                            │
-│                                                                        │
-└────────────────────────────────────────────────────────────────────────┘
+# Get recommended next task (highest priority)
+recommended_task=$(echo "$available_tasks" | jq -s '.[0]')
+rec_id=$(echo "$recommended_task" | jq -r '.id')
+rec_title=$(echo "$recommended_task" | jq -r '.title')
+rec_priority=$(echo "$recommended_task" | jq -r '.priority')
+rec_type=$(echo "$recommended_task" | jq -r '.type')
 
-┌─ WHAT HAPPENS NEXT ────────────────────────────────────────────────────┐
-│                                                                        │
-│  {MODE-SPECIFIC GUIDANCE}                                              │
-│                                                                        │
-│  Pause:    Resume with /agent:start {TASK_ID}                         │
-│  Blocked:  Task will appear in bd list when deps resolved             │
-│  Handoff:  {HANDOFF_TO} will receive notification                     │
-│  Abandon:  Task is available in bd ready for anyone                   │
-│                                                                        │
-└────────────────────────────────────────────────────────────────────────┘
-```
+echo "📋 Available Tasks to Switch To ($task_count total):"
+echo ""
 
-**Mode-specific summaries:**
+# Display tasks in table format
+echo "$available_tasks" | jq -s -r '.[] |
+  "   [\(.priority)] \(.id) - \(.title) (\(.type))"' | head -10
 
-**Pause:**
-```
-✅ Work paused on task-abc
+if [[ "$task_count" -gt 10 ]]; then
+  echo ""
+  echo "   ... and $((task_count - 10)) more tasks"
+  echo ""
+  echo "   Run 'bd ready' to see all tasks"
+fi
 
-You can resume anytime with:
-  /agent:start task-abc
-
-File reservations are still active (expires in Xh).
-```
-
-**Blocked:**
-```
-🚫 Task marked as BLOCKED
-
-Task will not appear in bd ready until:
-  • Dependencies are resolved
-  • Someone manually unblocks it with: bd update task-abc --status open
-
-File reservations released - others can work on related areas.
-```
-
-**Handoff:**
-```
-👋 Task handed off to {HANDOFF_TO}
-
-File reservations released.
-{HANDOFF_TO} will receive Agent Mail notification.
-Task is now assigned to them in Beads.
-```
-
-**Abandon:**
-```
-🛑 Work abandoned
-
-File reservations released.
-Task unassigned and marked as open.
-Available for anyone to pick up with /agent:start or bd ready.
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "💡 Next steps:"
+echo "   • /agent:start $rec_id - Start highest priority task"
+echo "   • /agent:start <task-id> - Start different task"
+echo "   • /agent:start $task_id - Resume paused task"
+echo "   • Close terminal if done for the day"
+echo ""
 ```
 
 ---
 
-## Parameter Combinations
+## Output Example
 
-| Command | Behavior | File Reservations | Task Status | Assignee |
-|---------|----------|-------------------|-------------|----------|
-| `/agent:pause task-abc --reason "Break"` | Simple pause | Kept | Unchanged | Unchanged |
-| `/agent:pause task-abc --blocked --reason "API down"` | Mark blocked | Released | → blocked | Unchanged |
-| `/agent:pause task-abc --handoff Alice --reason "Need expert"` | Hand off | Released | Unchanged | → Alice |
-| `/agent:pause task-abc --abandon --reason "Not needed"` | Abandon | Released | → open | Cleared |
+**Successful pause:**
+```
+💾 Quick saving changes...
+   ✅ Quick commit done
 
----
+📬 Checking Agent Mail...
+   📬 2 unread messages - acknowledging all...
+   ✅ Acknowledged 2 messages
 
-## When to Use Each Mode
+📢 Announcing task pause...
+   ✅ Sent pause notification to @active
 
-**Simple Pause (default):**
-- Taking a break
-- Switching to urgent task temporarily
-- End of day (will resume tomorrow)
-- Want to keep file locks
+⏸️  Updating task status in Beads...
+   ✅ Task remains in_progress (can resume later)
 
-**Blocked (`--blocked`):**
-- Waiting for external dependency
-- API/service is down
-- Blocked by another task
-- Cannot proceed until X happens
-- Want to signal "not my fault, can't continue"
+🔓 Releasing file reservations...
+   ✅ Released src/lib/**/*.ts (3 files)
 
-**Handoff (`--handoff`):**
-- Task needs different expertise
-- You're overloaded, someone else available
-- Better fit for another agent's skillset
-- Coordinated transfer of work
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏸️  Task Paused: jat-abc "Add user settings page"
+👤 Agent: JustGrove
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**Abandon (`--abandon`):**
-- Requirements changed, task obsolete
-- Realized wrong approach, task needs rethinking
-- Task is duplicate or no longer needed
-- Want to put it back in the queue
+📋 Available Tasks to Switch To (7 total):
 
----
+   [1] jat-xyz - Update documentation for new API (task)
+   [1] jat-def - Fix authentication timeout bug (bug)
+   [2] jat-ghi - Add dark mode toggle (feature)
+   [2] jat-jkl - Refactor database queries (chore)
+   [3] jat-mno - Update dependencies (chore)
+   [3] jat-pqr - Add user profile page (feature)
+   [3] jat-stu - Fix typos in README (chore)
 
-## Integration with Other Commands
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**Resume paused work:**
-```bash
-/agent:start task-abc  # Automatically resumes paused task
+💡 Next steps:
+   • /agent:start jat-xyz - Start highest priority task
+   • /agent:start <task-id> - Start different task
+   • /agent:start jat-abc - Resume paused task
+   • Close terminal if done for the day
 ```
 
-**Check your paused tasks:**
-```bash
-/agent:status  # Shows paused tasks with reservations
+**No other tasks available:**
 ```
+⏸️  Task Paused: jat-abc "Add user settings page"
+👤 Agent: JustGrove
 
-**See blocked tasks:**
-```bash
-bd list --status blocked  # Shows all blocked tasks
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 No other ready tasks available.
+
+💡 Next steps:
+   • /agent:start jat-abc - Resume this task
+   • /agent:plan - Create new tasks
+   • Close terminal if done for the day
 ```
-
-**Complete after unblocking:**
-```bash
-bd update task-abc --status open  # Unblock manually
-/agent:start task-abc  # Resume work
-```
-
----
-
-## Notes
-
-- **Simple pause keeps reservations:** Won't expire if TTL hasn't passed
-- **Other modes release:** Others can work on those files
-- **Agent Mail notification:** Always sent to keep team informed
-- **Beads status:** Updated appropriately for each mode
-- **Resuming:** Use /agent:start task-id to resume any paused work
-- **No confirmation prompts:** Trust agent to use correct mode
 
 ---
 
 ## Error Handling
 
-**Common errors:**
-- "Task not found" → Check task ID with `bd list`
-- "No agent registered" → Run `/agent:start` first
-- "Handoff agent not found" → Check agent name with `am-agents`
-- "Reason required" → Add `--reason "text"` for blocked/handoff/abandon
+**No active session:**
+```
+❌ No active session detected.
+💡 Run /agent:start to begin working
+```
+
+**No task in progress:**
+```
+⚠️  No task currently in progress.
+
+[Shows available tasks menu anyway]
+```
+
+**Git commit failed:**
+```
+❌ Failed to quick commit changes:
+   [git error message]
+
+💡 Fix git issues or use 'git stash' manually
+```
+
+---
+
+## Use Cases
+
+**Emergency exit (laptop dying):**
+```bash
+# Battery at 2%!
+/agent:pause
+# → Quick commit (2 seconds)
+# → Release locks
+# → Done! Close lid
+```
+
+**Pivot to different work:**
+```bash
+# Working on frontend, suddenly need to fix backend bug
+/agent:pause
+# → Shows backend tasks in menu
+/agent:start jat-backend-bug
+```
+
+**Blocked by dependency:**
+```bash
+# Can't continue, waiting for API team
+/agent:pause
+# → Shows other tasks
+/agent:start jat-different-task
+# (Original task stays in_progress, can resume later)
+```
+
+**Context switch:**
+```bash
+# Been doing UI work for 2 hours, want to switch to backend
+/agent:pause
+# → Shows all tasks
+/agent:start jat-backend-refactor
+```

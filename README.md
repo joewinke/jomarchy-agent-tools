@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tools](https://img.shields.io/badge/Tools-28-blue)](#4-28-generic-bash-tools)
-[![Commands](https://img.shields.io/badge/Commands-8-purple)](#3-agent-swarm-coordination-commands)
+[![Commands](https://img.shields.io/badge/Commands-7-purple)](#3-agent-swarm-coordination-commands)
 [![Agent Mail](https://img.shields.io/badge/Agent%20Mail-Bash%2BSQLite-green)](#1-agent-mail)
 [![Beads](https://img.shields.io/badge/Beads-CLI-orange)](https://github.com/steveyegge/beads)
 
 **Manage multiple agents across several projects in a complete AI-assisted development environment in one command.**
 
-Agent Mail (multi-agent coordination) + Beads (task planning) + 28 bash tools + 8 coordination commands = Full swarm orchestration that transcends context windows and project boundaries.
+Agent Mail (multi-agent coordination) + Beads (task planning) + 28 bash tools + 7 coordination commands = Full swarm orchestration that transcends context windows and project boundaries.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/joewinke/jat/main/install.sh | bash
@@ -37,11 +37,11 @@ bd init
 #   Paste written PRD, then: /agent:plan
 /agent:plan
 
-# 5. Complete tasks
-/agent:complete
+# 5. Complete tasks (drive mode - auto-continues)
+/agent:next
 ```
 
-**From idea to working code in 5 minutes!** The installer sets up Agent Mail, Beads CLI, 28 tools, and 8 coordination commands. Your AI assistant gains multi-agent swarm coordination capabilities instantly.
+**From idea to working code in 5 minutes!** The installer sets up Agent Mail, Beads CLI, 28 tools, and 7 coordination commands. Your AI assistant gains multi-agent swarm coordination capabilities instantly.
 
 ### How It Actually Works
 
@@ -58,7 +58,7 @@ See [Complete Workflow](#complete-workflow-from-idea-to-production) below for de
 
 Jomarchy Agent Tools is a **self-contained AI development environment** that gives your AI coding assistants (Claude Code, Cline, Codex, OpenCode, etc.) the ability to:
 
-- **Command** agent swarms with high-level coordination primitives (/agent:start, /agent:complete, /agent:pause)
+- **Command** agent swarms with high-level coordination primitives (/agent:start, /agent:next, /agent:complete, /agent:pause)
 - **Coordinate** across multiple agents without conflicts (Agent Mail messaging + file locks)
 - **Transcend** project folders and context window bounds with persistent state
 - **Plan** work with dependency-aware task management (Beads)
@@ -76,9 +76,9 @@ Jomarchy Agent Tools is a **self-contained AI development environment** that giv
                       ▼
          ┌────────────────────────┐
          │  Coordination Layer    │
-         │  8 Slash Commands      │  /register, /start, /pause,
-         │  ~/.claude/commands/   │  /complete, /finish, /status,
-         └────────┬───────────────┘  /verify, /plan
+         │  5 Slash Commands      │  /start, /done, /status,
+         │  ~/.claude/commands/   │  /verify, /plan
+         └────────┬───────────────┘
                   │
     ┌─────────────┼─────────────┐
     │             │             │
@@ -95,7 +95,7 @@ File Locks    Dependencies  (db, browser, etc)
 ```
 
 **How it works:**
-1. **AI Assistants** use coordination commands (`/start`, `/complete`, etc.)
+1. **AI Assistants** use coordination commands (`/start`, `/done`, etc.)
 2. **Commands** orchestrate the three layers below
 3. **Agent Mail** handles messaging and file reservation conflicts
 4. **Beads** manages task queue with dependency resolution
@@ -816,15 +816,14 @@ bd show <task-id> --json               # Get task details as JSON
 
 ### 3. Agent Swarm Coordination Commands
 
-**8 slash commands** installed to `commands/agent/` that enable sophisticated multi-agent orchestration:
+**7 slash commands** installed to `commands/agent/` that enable sophisticated multi-agent orchestration:
 
 ```
 commands/agent/
-├── register.md    - Explicit agent selection with full review
-├── start.md       - Main command: register + task start + work
-├── pause.md       - Unified stop: pause/block/handoff/abandon
-├── complete.md    - Finish + verify + auto-continue
-├── finish.md      - Session wrap-up: end work day gracefully
+├── start.md       - Begin work: register + task start
+├── next.md        - Drive mode: complete + auto-start next
+├── complete.md    - Finish properly: complete + show menu
+├── pause.md       - Quick pivot: pause + show menu
 ├── status.md      - Check current work status
 ├── verify.md      - Quality checks before completion
 └── plan.md        - Convert planning docs to Beads tasks
@@ -833,16 +832,13 @@ commands/agent/
 #### Command Categories
 
 **Core Workflow (4 commands):**
-- `/agent:register` - Explicit registration with full agent review
-- `/agent:start` - Main command: handles registration, task selection, conflict detection, and work start
-- `/agent:complete` - Finish work (verify, commit, auto-continue to next)
-- `/agent:finish` - Session wrap-up: gracefully end work day (release locks, commit/stash, send summary)
+- `/agent:start` - Begin work: handles registration, task selection, conflict detection, and work start
+- `/agent:next` - Drive mode: complete task + auto-start next (high velocity)
+- `/agent:complete` - Finish properly: complete task + show menu (manual selection)
+- `/agent:pause` - Quick pivot: pause task + show menu (context switch)
 
-**Coordination (2 commands):**
-- `/agent:pause` - Unified stop command with modes: pause, block, handoff, abandon
+**Coordination & Quality (3 commands):**
 - `/agent:status` - Check state, sync with team, update presence
-
-**Quality & Planning (2 commands):**
 - `/agent:verify` - Pre-completion checks (tests, lint, browser, security)
 - `/agent:plan` - Convert planning documents to structured Beads tasks
 
@@ -860,49 +856,90 @@ Commands are **markdown files with instructions** that Claude Code executes:
 **Single agent, continuous flow:**
 
 ```bash
-# Start session
-/register
-# → Registers with Agent Mail
-# → Reviews available tasks from Beads
-# → Shows inbox messages
+# Start session (auto-creates agent)
+/agent:start
+# → Auto-creates new agent identity
+# → Shows available tasks from Beads
+# → Ready to pick a task
 
-# Start highest priority task
-/start
-# → Context-aware: Creates task from conversation if discussed
-# → Conflict checks: File locks, git, inbox, task status
+# Resume existing agent (choose from menu)
+/agent:start resume
+# → Shows ALL registered agents (no time filter)
+# → Pick existing agent to resume work
+# → Shows their inbox, tasks, status
+
+# Resume specific agent by name
+/agent:start GreatWind
+# → Resumes as GreatWind agent
+# → Shows tasks assigned to GreatWind
+# → Ready to continue work
+
+# Start highest priority task (quick mode)
+/agent:start quick
+# → Picks highest priority task automatically
+# → Skips conflict detection
+# → Skips dependency checks
+# → BEGINS WORKING IMMEDIATELY
+
+# Start specific task (with conflict checks)
+/agent:start task-abc
+# → Starts task-abc specifically
+# → Conflict checks: File locks, git, dependencies
 # → Reserves files, announces start
 # → BEGINS WORKING IMMEDIATELY
 
+# Start specific task (quick mode - skip checks)
+/agent:start task-abc quick
+# → Starts task-abc immediately
+# → Skips conflict detection
+# → Skips dependency checks
+# → Use when solo or need speed
+
 # ... work happens (write code, test, document) ...
 
-# Complete and auto-continue
-/complete
-# → Runs /verify (tests, lint, security)
-# → Commits changes, updates docs
-# → Releases file reservations
+# Drive mode - complete and auto-continue
+/agent:next
+# → Runs /agent:verify (tests, lint, security)
+# → Commits changes
+# → Acknowledges all unread Agent Mail
+# → Announces completion
 # → Marks task complete in Beads
+# → Releases file reservations
 # → AUTO-STARTS NEXT TASK (continuous flow)
 
 # ... next task starts automatically ...
+# ... work, /agent:next, work, /agent:next (loop) ...
 
-# Complete and stop for the day
-/complete stop
-# → Completes current task
-# → Shows available tasks but DOESN'T auto-start
-# → Agent session ends cleanly
+# Complete properly and show menu (manual selection)
+/agent:complete
+# → Full verification and completion
+# → Shows available tasks menu
+# → Displays recommended next task
+# → You choose what's next
+# Output:
+#   ✅ Task Completed: jat-abc "Add user settings"
+#   👤 Agent: GreatWind
+#
+#   📋 Recommended Next Task:
+#      → jat-xyz "Update docs" (Priority: P1)
+#
+#      Type: /agent:start jat-xyz
 
-# Or end entire session gracefully
-/agent:finish
-# → Handles in-progress work (pause/complete)
-# → Releases ALL file reservations
-# → Commits/stashes uncommitted changes
-# → Reviews and acknowledges messages
-# → Generates session summary
-# → Shows tomorrow's priorities
-# → Clean slate for next session
+# Quick pivot to different work
+/agent:pause
+# → Quick commit/stash (2 seconds)
+# → Acknowledges all unread Agent Mail
+# → Releases locks
+# → Shows available tasks menu
+# → You pick different work
+
+# End of day - just close terminal after /agent:complete
+/agent:complete
+# → Shows menu + recommended next task
+# → Close terminal when done
 ```
 
-**Key insight:** `/complete` creates a **continuous flow** by automatically starting the next highest-priority task. Agents never sit idle!
+**Key insight:** `/agent:next` creates a **continuous flow** by automatically starting the next highest-priority task. Agents never sit idle!
 
 #### Example: Multi-Agent Coordination
 
@@ -1126,7 +1163,7 @@ npm run dev
 The installer **appends** comprehensive instructions to your global `~/.claude/CLAUDE.md` file. This "prompt injection" is fully transparent and auditable.
 
 **What gets appended:**
-- 🤖 Agent Swarm Coordination Commands (8 slash commands)
+- 🤖 Agent Swarm Coordination Commands (5 slash commands)
 - 📬 Agent Mail (coordination patterns, macros, pitfalls)
 - 📋 Beads Integration (workflow conventions, task mapping)
 - 🛠️ Agent Tools (28 bash tools with examples)
@@ -1391,19 +1428,61 @@ The global CLAUDE.md automatically provides tool documentation to all assistants
 
 ---
 
-## Unified Dashboard (Chimaro)
+## Beads Task Dashboard
 
-If you have Chimaro installed, you get a web-based dashboard that aggregates tasks from all projects:
+JAT includes a standalone SvelteKit 5 dashboard for multi-agent task coordination across all your projects.
 
-**URL:** `http://localhost:5173/account/development/beads` (when Chimaro is running)
+**Launch:**
+```bash
+bd-dashboard        # Auto-opens http://127.0.0.1:5174
+# or
+jat-dashboard       # Alias for bd-dashboard
+```
 
-**Features:**
-- View tasks across all ~/code/* projects
-- Filter by project, status, priority, assignee, type, labels
-- Color-coded ID badges show project at a glance
-- Inline editing (update status, priority, assignee)
-- Create new tasks via web UI
-- Return completed tasks to queue
+**What It Does:**
+- **Multi-project aggregation** - Unified view of all tasks from `~/code/*/.beads/`
+- **Multi-view task management** - List, Kanban, Dependency Graph, Timeline, Agents
+- **Agent coordination** - Drag-and-drop task assignment with conflict detection
+- **Real-time updates** - Auto-refresh every 5 seconds, live status indicators
+- **Token tracking** - Per-agent cost monitoring with Claude API pricing
+- **Theme switching** - 32 DaisyUI themes (light, dark, nord, cyberpunk, etc.)
+
+**Key Features:**
+
+**1. Agent View** (`/agents`)
+- Visual agent cards showing status, task queue, file reservations
+- Drag-and-drop tasks onto agents to assign
+- Automatic conflict detection (file locks, dependencies, git changes)
+- Token usage sparklines (24-hour trends)
+- Live indicators: 🔒 file locks, 📬 unread messages, ⏱ time remaining
+
+**2. Kanban Board** (`/kanban`)
+- Drag-and-drop cards between columns (open → in_progress → closed)
+- Grouped by status with task counts
+- Inline status updates
+
+**3. Dependency Graph** (`/graph`)
+- D3.js visualization of task dependencies
+- Shows blocking relationships (DAG structure)
+- Click nodes to view task details
+
+**4. Timeline View** (`/timeline`)
+- Gantt-chart style task visualization
+- Time-based task scheduling
+- Dependency arrows between tasks
+
+**5. Advanced Filtering:**
+- Project dropdown (e.g., "jat", "chimaro", "all projects")
+- Status filter (open, in_progress, blocked, closed)
+- Priority filter (P0, P1, P2, P3)
+- Label tags (e.g., "urgent", "bug", "frontend")
+- Search across title and description
+
+**Architecture:**
+- **SvelteKit 5** with Svelte 5 runes (`$state`, `$derived`, `$effect`)
+- **Tailwind CSS v4** + DaisyUI component library
+- **Better-sqlite3** - Reads `.beads/` databases directly (no backend needed)
+- **Token tracking** - Parses Claude Code session JSONL files for real usage
 
 ---
 

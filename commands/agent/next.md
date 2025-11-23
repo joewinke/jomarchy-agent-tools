@@ -1,16 +1,17 @@
 ---
-argument-hint:
+argument-hint: [quick]
 ---
 
-Complete current task properly with full verification, then show menu of available tasks and recommend next task.
+Complete current task and immediately start the next one. Drive mode for high-velocity work.
 
-# Agent Complete - Finish Task Properly
+# Agent Next - Complete and Continue
 
 **Usage:**
-- `/agent:complete` - Complete current task with full verification, show menu
+- `/agent:next` - **Complete task + auto-start next** (DEFAULT - full verification)
+- `/agent:next quick` - Complete task + auto-start next (skip verification, fast)
 
 **What this command does:**
-1. **Full Completion Protocol**:
+1. **Full Completion Protocol** (unless quick mode):
    - Verify task (tests, lint, security, browser checks)
    - Commit changes with proper message
 2. **Agent Mail Coordination**:
@@ -19,20 +20,19 @@ Complete current task properly with full verification, then show menu of availab
 3. **Beads Task Management**:
    - Mark task as complete in Beads
    - Release file reservations
-4. **Next Task Selection**:
-   - Show available tasks menu
-   - Display recommended next task with one-line command
-   - Wait for user to choose (does NOT auto-start)
+4. **Auto-Continue**:
+   - Automatically pick highest priority ready task
+   - Start work immediately (no menu, no pause)
 
 **When to use:**
-- **Careful workflow**: You want to choose next task manually
-- **Context switch**: Might want different type of work next
-- **Review point**: Want to check status before continuing
-- **End of work**: Last task before closing terminal
+- **Drive mode**: You're in flow state and want to keep going
+- **Sprint work**: Burning through a task list
+- **High velocity**: Trust your work, don't want interruptions
 
 **When NOT to use:**
-- Want to keep going automatically → use `/agent:next` instead
-- Need to pivot quickly → use `/agent:pause` instead
+- Need to choose next task manually → use `/agent:complete` instead
+- Need to pivot to different work → use `/agent:pause` instead
+- Uncertain about quality → run `/agent:verify` first
 
 ---
 
@@ -90,6 +90,20 @@ SESSION_ID="abc" && if [[ -f "$file" ]]; then echo "yes"; fi
 
 ## Implementation Steps
 
+### STEP 0: Parse Mode
+
+```bash
+MODE="${1:-verify}"  # Default to full verification
+
+if [[ "$1" == "quick" ]]; then
+  SKIP_VERIFICATION=true
+else
+  SKIP_VERIFICATION=false
+fi
+```
+
+---
+
 ### STEP 1: Get Current Task and Agent Identity
 
 #### 1A: Get Session ID
@@ -120,17 +134,21 @@ bd list --json | jq -r --arg agent "$agent_name" \
 
 ---
 
-### STEP 2: Verify Task
+### STEP 2: Verify Task (Unless Quick Mode)
+
+**Only run if `SKIP_VERIFICATION=false`**
 
 ```bash
-echo "🔍 Verifying task before completion..."
+if [[ "$SKIP_VERIFICATION" == "false" ]]; then
+  echo "🔍 Verifying task before completion..."
 
-# Run /agent:verify for current task
-# This handles: tests, lint, security, browser checks
-# (Delegate to verify.md implementation)
+  # Run /agent:verify for current task
+  # This handles: tests, lint, security, browser checks
+  # (Delegate to verify.md implementation)
 
-# If verification fails, STOP and report issues
-# Do NOT continue to completion
+  # If verification fails, STOP and report issues
+  # Do NOT continue to completion
+fi
 ```
 
 ---
@@ -196,13 +214,13 @@ echo "📢 Announcing task completion..."
 
 # Send completion message to Agent Mail
 am-send "[$task_id] Completed: $task_title" \
-  "Task completed by $agent_name.
+  "Task completed by $agent_name and moving to next task.
 
 Status: ✅ Complete
 Type: $task_type
-Verification: Full (tests, lint, security, browser)
+Verification: $(if [[ "$SKIP_VERIFICATION" == "false" ]]; then echo "Full"; else echo "Quick (skipped)"; fi)
 
-Agent is now available for next task." \
+Starting next task automatically." \
   --from "$agent_name" \
   --to @active \
   --thread "$task_id" \
@@ -244,77 +262,68 @@ fi
 
 ---
 
-### STEP 7: Show Final Summary + Available Tasks Menu
+### STEP 7: Auto-Start Next Task
 
 ```bash
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Task Completed: $task_id \"$task_title\""
-echo "👤 Agent: $agent_name"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
+echo "🚀 Starting next task automatically..."
 
-# Get available tasks
-available_tasks=$(bd ready --json)
-task_count=$(echo "$available_tasks" | jq '. | length')
+# Get highest priority ready task
+next_task=$(bd ready --json | jq -r '.[0].id')
 
-if [[ "$task_count" -eq 0 ]]; then
+if [[ -z "$next_task" ]] || [[ "$next_task" == "null" ]]; then
+  echo "✅ Task completed!"
+  echo ""
   echo "📋 No more ready tasks available."
   echo "🎉 All caught up!"
-  echo ""
-  echo "💡 Next steps:"
-  echo "   • Run /agent:plan to create new tasks"
-  echo "   • Run /agent:status to review current state"
-  echo "   • Close terminal if done for the day"
   exit 0
 fi
 
-# Get recommended next task (highest priority)
-recommended_task=$(echo "$available_tasks" | jq -r '.[0]')
-rec_id=$(echo "$recommended_task" | jq -r '.id')
-rec_title=$(echo "$recommended_task" | jq -r '.title')
-rec_priority=$(echo "$recommended_task" | jq -r '.priority')
-rec_type=$(echo "$recommended_task" | jq -r '.type')
-
-echo "📋 Recommended Next Task:"
-echo "   → $rec_id \"$rec_title\" (Priority: P$rec_priority, Type: $rec_type)"
-echo ""
-echo "   Type: /agent:start $rec_id"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-# Show full task menu
-echo "📋 Available Tasks ($task_count total):"
-echo ""
-
-# Display tasks in table format
-echo "$available_tasks" | jq -r '.[] |
-  "   [\(.priority)] \(.id) - \(.title) (\(.type))"' | head -10
-
-if [[ "$task_count" -gt 10 ]]; then
-  echo ""
-  echo "   ... and $((task_count - 10)) more tasks"
-  echo ""
-  echo "   Run 'bd ready' to see all tasks"
-fi
+# Show which task we're starting
+next_task_json=$(bd show "$next_task" --json)
+next_task_title=$(echo "$next_task_json" | jq -r '.title')
+next_task_priority=$(echo "$next_task_json" | jq -r '.priority')
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "➡️  Auto-starting next task:"
+echo "   Task: $next_task"
+echo "   Priority: P$next_task_priority"
+echo "   Title: $next_task_title"
 echo ""
-echo "💡 Next steps:"
-echo "   • /agent:start $rec_id - Start recommended task"
-echo "   • /agent:start <task-id> - Start different task"
-echo "   • /agent:status - Review current state"
-echo "   • Close terminal if done for the day"
-echo ""
+
+# Delegate to /agent:start to actually start the task
+# This handles: conflict detection, file reservation, agent mail announcement
+# Pass task_id and "quick" mode (skip conflict checks since we're in flow)
+/agent:start "$next_task" quick
 ```
+
+---
+
+## Quick Mode Behavior
+
+**When using `/agent:next quick`:**
+
+**Skipped:**
+- ❌ Task verification (tests, lint, security, browser)
+- ❌ Conflict detection when starting next task
+
+**Still done:**
+- ✅ Commit changes
+- ✅ Acknowledge all Agent Mail messages
+- ✅ Announce completion
+- ✅ Mark task complete in Beads
+- ✅ Release file reservations
+- ✅ Auto-start next task
+
+**Use quick mode when:**
+- You're solo (no conflicts possible)
+- You trust your work (ran tests manually)
+- Speed is critical (rapid iteration)
 
 ---
 
 ## Output Example
 
-**Successful completion:**
+**Default mode (`/agent:next`):**
 ```
 🔍 Verifying task before completion...
    ✅ Tests passed (12/12)
@@ -338,52 +347,41 @@ echo ""
 🔓 Releasing file reservations...
    ✅ Released src/lib/**/*.ts (2 files)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Task Completed: jat-abc "Add user settings page"
-👤 Agent: JustGrove
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 Starting next task automatically...
 
-📋 Recommended Next Task:
-   → jat-xyz "Update documentation for new API" (Priority: P1, Type: task)
+➡️  Auto-starting next task:
+   Task: jat-xyz
+   Priority: P1
+   Title: Update documentation for new API
 
-   Type: /agent:start jat-xyz
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 Available Tasks (8 total):
-
-   [1] jat-xyz - Update documentation for new API (task)
-   [1] jat-def - Fix authentication timeout bug (bug)
-   [2] jat-ghi - Add dark mode toggle (feature)
-   [2] jat-jkl - Refactor database queries (chore)
-   [3] jat-mno - Update dependencies (chore)
-   [3] jat-pqr - Add user profile page (feature)
-   [3] jat-stu - Fix typos in README (chore)
-   [3] jat-vwx - Add metrics dashboard (feature)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 Next steps:
-   • /agent:start jat-xyz - Start recommended task
-   • /agent:start <task-id> - Start different task
-   • /agent:status - Review current state
-   • Close terminal if done for the day
+[... /agent:start jat-xyz quick runs here ...]
 ```
 
-**No more tasks:**
+**Quick mode (`/agent:next quick`):**
 ```
-✅ Task Completed: jat-abc "Add user settings page"
-👤 Agent: JustGrove
+💾 Committing changes...
+   ✅ Committed: "feat: Add user settings page"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📬 Checking Agent Mail...
+   ✅ No unread messages
 
-📋 No more ready tasks available.
-🎉 All caught up!
+📢 Announcing task completion...
+   ✅ Sent completion message to @active
 
-💡 Next steps:
-   • Run /agent:plan to create new tasks
-   • Run /agent:status to review current state
-   • Close terminal if done for the day
+✅ Marking task complete in Beads...
+   ✅ Closed jat-abc
+
+🔓 Releasing file reservations...
+   ✅ Released all reservations
+
+🚀 Starting next task automatically...
+
+➡️  Auto-starting next task:
+   Task: jat-xyz
+   Priority: P1
+   Title: Update documentation for new API
+
+[Starting immediately without verification...]
 ```
 
 ---
@@ -408,8 +406,7 @@ echo ""
    • 2 tests failing
    • 5 lint errors
 
-💡 Fix issues and try again
-💡 Or run /agent:verify to see detailed error report
+💡 Fix issues and try again, or use /agent:next quick to skip verification
 ```
 
 **Git commit failed:**
@@ -418,4 +415,12 @@ echo ""
    [git error message]
 
 💡 Fix git issues and try again
+```
+
+**No next task available:**
+```
+✅ Task completed!
+
+📋 No more ready tasks available.
+🎉 All caught up!
 ```
