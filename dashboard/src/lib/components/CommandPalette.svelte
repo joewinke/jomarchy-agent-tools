@@ -146,6 +146,21 @@
 				window.location.reload();
 				close();
 			}
+		},
+		{
+			id: 'help-reference',
+			label: 'Help & Reference',
+			description: 'View agent commands, keyboard shortcuts, and README',
+			icon: '📖',
+			keywords: ['help', 'reference', 'docs', 'commands', 'shortcuts', 'guide', 'documentation'],
+			execute: () => {
+				// Trigger help modal by clicking the help button
+				const helpBtn = document.querySelector('button[aria-label="Show help guide"]');
+				if (helpBtn instanceof HTMLElement) {
+					helpBtn.click();
+				}
+				close();
+			}
 		}
 	];
 
