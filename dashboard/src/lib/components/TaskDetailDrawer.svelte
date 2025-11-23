@@ -232,8 +232,20 @@
 				// Update task with server response
 				task = data.task;
 
-				// DO NOT update originalTask here - it would trigger effects again
-				// originalTask stays as the baseline from when task was loaded/entered edit mode
+				// Update formData to match saved values (prevents further auto-saves)
+				formData = {
+					title: task.title || '',
+					description: task.description || '',
+					priority: task.priority ?? 1,
+					type: task.type || 'task',
+					status: task.status || 'open',
+					project: task.project || '',
+					labels: task.labels ? task.labels.join(', ') : '',
+					assignee: task.assignee || ''
+				};
+
+				// Update originalTask to match saved state (breaks the loop)
+				originalTask = { ...formData };
 
 				lastSaved = new Date();
 
